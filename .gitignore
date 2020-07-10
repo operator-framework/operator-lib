@@ -1,0 +1,6 @@
+vendor*
+coverage-all.out
+coverage.out
+
+# IDE baggage
+.idea/
