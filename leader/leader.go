@@ -16,9 +16,11 @@ package leader
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 	"time"
-
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +30,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+type runModeType string
+
+const (
+	localRunMode   runModeType = "local"
+	clusterRunMode runModeType = "cluster"
+)
+
+// forceRunModeEnv indicates if the operator should be forced to run in either local
+// or cluster mode (currently only used for local mode)
+var forceRunModeEnv = "OSDK_FORCE_RUN_MODE"
+
+// errNoNamespace indicates that a namespace could not be found for the current
+// environment
+var errNoNamespace = fmt.Errorf("namespace not found for current environment")
+
+// errRunLocal indicates that the operator is set to run in local mode (this error
+// is returned by functions that only work on operators running in cluster mode)
+var errRunLocal = fmt.Errorf("operator run mode forced to local")
+
+// podNameEnvVar is the constant for env variable POD_NAME
+// which is the name of the current pod.
+const podNameEnvVar = "POD_NAME"
 
 var log = logf.Log.WithName("leader")
 
@@ -45,9 +70,9 @@ const maxBackoffInterval = time.Second * 16
 func Become(ctx context.Context, lockName string) error {
 	log.Info("Trying to become the leader.")
 
-	ns, err := k8sutil.GetOperatorNamespace()
+	ns, err := getOperatorNamespace()
 	if err != nil {
-		if err == k8sutil.ErrNoNamespace || err == k8sutil.ErrRunLocal {
+		if err == errNoNamespace || err == errRunLocal {
 			log.Info("Skipping leader election; not running in a cluster.")
 			return nil
 		}
@@ -164,7 +189,7 @@ func Become(ctx context.Context, lockName string) error {
 // this code is currently running.
 // It expects the environment variable POD_NAME to be set by the downwards API
 func myOwnerRef(ctx context.Context, client crclient.Client, ns string) (*metav1.OwnerReference, error) {
-	myPod, err := k8sutil.GetPod(ctx, client, ns)
+	myPod, err := getPod(ctx, client, ns)
 	if err != nil {
 		return nil, err
 	}
@@ -182,4 +207,57 @@ func isPodEvicted(pod corev1.Pod) bool {
 	podFailed := pod.Status.Phase == corev1.PodFailed
 	podEvicted := pod.Status.Reason == "Evicted"
 	return podFailed && podEvicted
+}
+
+// getOperatorNamespace returns the namespace the operator should be running in.
+func getOperatorNamespace() (string, error) {
+	if isRunModeLocal() {
+		return "", errRunLocal
+	}
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errNoNamespace
+		}
+		return "", err
+	}
+	ns := strings.TrimSpace(string(nsBytes))
+	log.V(1).Info("Found namespace", "Namespace", ns)
+	return ns, nil
+}
+
+func isRunModeLocal() bool {
+	return os.Getenv(forceRunModeEnv) == string(localRunMode)
+}
+
+// getPod returns a Pod object that corresponds to the pod in which the code
+// is currently running.
+// It expects the environment variable POD_NAME to be set by the downwards API.
+func getPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod, error) {
+	if isRunModeLocal() {
+		return nil, errRunLocal
+	}
+	podName := os.Getenv(podNameEnvVar)
+	if podName == "" {
+		return nil, fmt.Errorf("required env %s not set, please configure downward API", podNameEnvVar)
+	}
+
+	log.V(1).Info("Found podname", "Pod.Name", podName)
+
+	pod := &corev1.Pod{}
+	key := crclient.ObjectKey{Namespace: ns, Name: podName}
+	err := client.Get(ctx, key, pod)
+	if err != nil {
+		log.Error(err, "Failed to get Pod", "Pod.Namespace", ns, "Pod.Name", podName)
+		return nil, err
+	}
+
+	// .Get() clears the APIVersion and Kind,
+	// so we need to set them before returning the object.
+	pod.TypeMeta.APIVersion = "v1"
+	pod.TypeMeta.Kind = "Pod"
+
+	log.V(1).Info("Found Pod", "Pod.Namespace", ns, "Pod.Name", pod.Name)
+
+	return pod, nil
 }
