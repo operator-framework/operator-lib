@@ -43,11 +43,10 @@ var forceRunModeEnv = "OSDK_FORCE_RUN_MODE"
 
 // errNoNamespace indicates that a namespace could not be found for the current
 // environment
-var errNoNamespace = fmt.Errorf("namespace not found for current environment")
+var errNoNamespace = fmt.Errorf("Namespace is required when running outside the cluster")
 
-// errRunLocal indicates that the operator is set to run in local mode (this error
-// is returned by functions that only work on operators running in cluster mode)
-var errRunLocal = fmt.Errorf("operator run mode forced to local")
+// namespaceDir is the default location where namespace information is stored
+var namespaceDir = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
 // podNameEnvVar is the constant for env variable POD_NAME
 // which is the name of the current pod.
@@ -59,23 +58,22 @@ var log = logf.Log.WithName("leader")
 // attempts to become the leader.
 const maxBackoffInterval = time.Second * 16
 
-// Become ensures that the current pod is the leader within its namespace. If
-// run outside a cluster, it will skip leader election and return nil. It
+// Become ensures that the current pod is the leader within the given
+// namespace. If run outside a cluster, it will return an error. It
 // continuously tries to create a ConfigMap with the provided name and the
 // current pod set as the owner reference. Only one can exist at a time with
 // the same name, so the pod that successfully creates the ConfigMap is the
-// leader. Upon termination of that pod, the garbage collector will delete the
-// ConfigMap, enabling a different pod to become the leader.
-func Become(ctx context.Context, lockName string) error {
+// leader. Upon termination of that pod, the garbage collector will delete
+// the ConfigMap, enabling a different pod to become the leader.
+func Become(ctx context.Context, lockName string, ns string) error {
 	log.Info("Trying to become the leader.")
 
-	ns, err := getOperatorNamespace()
-	if err != nil {
-		if err == errNoNamespace || err == errRunLocal {
-			log.Info("Skipping leader election; not running in a cluster.")
-			return nil
+	if ns == "" {
+		namespace, err := getOperatorNamespace()
+		if err != nil {
+			return err
 		}
-		return err
+		ns = namespace
 	}
 
 	config, err := config.GetConfig()
@@ -210,10 +208,7 @@ func isPodEvicted(pod corev1.Pod) bool {
 
 // getOperatorNamespace returns the namespace the operator should be running in.
 func getOperatorNamespace() (string, error) {
-	if isRunModeLocal() {
-		return "", errRunLocal
-	}
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	nsBytes, err := ioutil.ReadFile(namespaceDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", errNoNamespace
@@ -225,17 +220,10 @@ func getOperatorNamespace() (string, error) {
 	return ns, nil
 }
 
-func isRunModeLocal() bool {
-	return os.Getenv(forceRunModeEnv) == string(localRunMode)
-}
-
 // getPod returns a Pod object that corresponds to the pod in which the code
 // is currently running.
 // It expects the environment variable POD_NAME to be set by the downwards API.
 func getPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod, error) {
-	if isRunModeLocal() {
-		return nil, errRunLocal
-	}
 	podName := os.Getenv(podNameEnvVar)
 	if podName == "" {
 		return nil, fmt.Errorf("required env %s not set, please configure downward API", podNameEnvVar)
