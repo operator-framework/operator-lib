@@ -3,6 +3,8 @@ module github.com/operator-framework/operator-lib
 go 1.13
 
 require (
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
 	github.com/stretchr/testify v1.5.1
 	k8s.io/api v0.18.2
 	k8s.io/apimachinery v0.18.2

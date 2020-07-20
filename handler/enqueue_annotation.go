@@ -15,10 +15,11 @@
 package handler
 
 import (
+	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -31,8 +32,12 @@ var log = logf.Log.WithName("event_handler")
 
 const (
 	// NamespacedNameAnnotation - annotation that will be used to get the primary resource namespaced name.
+	// The handler will use this value to build the types.NamespacedName Object used to enqueue a Request when an event
+	// to update, create or delete the observed object is raised.
+	// Note: If only one value is provided without "/", then it will be used as the name of primary resource
 	NamespacedNameAnnotation = "operator-sdk/primary-resource"
 	// TypeAnnotation - annotation that will be used to verify that the primary resource is the primary resource to use.
+	// It is of the form type:schema.GroupKind, eg: operator-sdk/owner-type:core.Pods
 	TypeAnnotation = "operator-sdk/primary-resource-type"
 )
 
@@ -44,7 +49,8 @@ const (
 // 2. cluster scoped primary object.
 // 3. namespaced primary object and dependent namespaced scoped but in a different namespace object.
 type EnqueueRequestForAnnotation struct {
-	Type string
+	// Type string
+	Type schema.GroupKind
 }
 
 var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation{}
@@ -81,12 +87,12 @@ func (e *EnqueueRequestForAnnotation) Generic(evt event.GenericEvent, q workqueu
 }
 
 func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object) (bool, reconcile.Request) {
-	if typeString, ok := object.GetAnnotations()[TypeAnnotation]; ok && typeString == e.Type {
+	if typeString, ok := object.GetAnnotations()[TypeAnnotation]; ok && typeString == e.Type.String() {
 		namespacedNameString, ok := object.GetAnnotations()[NamespacedNameAnnotation]
 		if !ok {
 			log.Info("Unable to find namespaced name annotation for resource", "resource", object)
 		}
-		if namespacedNameString == "" {
+		if len(namespacedNameString) < 1 {
 			return false, reconcile.Request{}
 		}
 		nsn := parseNamespacedName(namespacedNameString)
@@ -96,7 +102,7 @@ func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object
 }
 
 func parseNamespacedName(namespacedNameString string) types.NamespacedName {
-	values := strings.Split(namespacedNameString, "/")
+	values := strings.SplitN(namespacedNameString, "/", 2)
 	if len(values) == 1 {
 		return types.NamespacedName{
 			Name:      values[0],
@@ -113,15 +119,40 @@ func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 }
 
 // SetOwnerAnnotation sets annotations for dependent resources that needs to be watched by namespaced Owners.
-func SetOwnerAnnotation(u *unstructured.Unstructured, owner *unstructured.Unstructured) {
-	a := u.GetAnnotations()
-	if a == nil {
-		a = map[string]string{}
+// func SetOwnerAnnotation(u *unstructured.Unstructured, owner *unstructured.Unstructured) {
+// 	a := u.GetAnnotations()
+// 	if a == nil {
+// 		a = map[string]string{}
+// 	}
+
+// 	nn := types.NamespacedName{Namespace: owner.GetNamespace(), Name: owner.GetName()}
+// 	a[NamespacedNameAnnotation] = nn.String()
+
+// 	a[TypeAnnotation] = owner.GetObjectKind().GroupVersionKind().GroupKind().String()
+// 	u.SetAnnotations(a)
+// }
+
+func SetOwnerAnnotation(owner, object metav1.Object, ownerGK schema.GroupKind) error {
+	if len(owner.GetName()) < 1 {
+		return fmt.Errorf("%T does not have a name, cannot call SetOwnerAnnotation", owner)
 	}
 
-	nn := types.NamespacedName{Namespace: owner.GetNamespace(), Name: owner.GetName()}
-	a[NamespacedNameAnnotation] = nn.String()
+	if len(ownerGK.Kind) < 1 {
+		return fmt.Errorf("Owner Kind not found, cannot call SetOwnerAnnotation")
+	}
 
-	a[TypeAnnotation] = owner.GetObjectKind().GroupVersionKind().GroupKind().String()
-	u.SetAnnotations(a)
+	if len(ownerGK.Group) < 1 {
+		return fmt.Errorf("Owner Group not found, cannot call SetOwnerAnnotation")
+	}
+
+	annotations := object.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[NamespacedNameAnnotation] = fmt.Sprintf("%v/%v", owner.GetNamespace(), owner.GetName())
+	annotations[TypeAnnotation] = ownerGK.String()
+
+	object.SetAnnotations(annotations)
+
+	return nil
 }
