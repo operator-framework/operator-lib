@@ -71,7 +71,7 @@ func TestIsPodEvicted(t *testing.T) {
 			},
 		},
 		{
-			name:     "Succeded pod returns false",
+			name:     "Succeeded pod returns false",
 			expected: false,
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{

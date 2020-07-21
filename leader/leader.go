@@ -31,16 +31,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type runModeType string
-
-const (
-	localRunMode runModeType = "local"
-)
-
-// forceRunModeEnv indicates if the operator should be forced to run in either local
-// or cluster mode (currently only used for local mode)
-var forceRunModeEnv = "OSDK_FORCE_RUN_MODE"
-
 // errNoNamespace indicates that a namespace could not be found for the current
 // environment
 var errNoNamespace = fmt.Errorf("Namespace is required when running outside the cluster")
