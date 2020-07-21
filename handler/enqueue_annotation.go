@@ -32,22 +32,73 @@ var log = logf.Log.WithName("event_handler")
 
 const (
 	// NamespacedNameAnnotation - annotation that will be used to get the primary resource namespaced name.
-	// The handler will use this value to build the types.NamespacedName Object used to enqueue a Request when an event
+	// The handler will use this value to build types.NamespacedName Object used to enqueue a Request when an event
 	// to update, create or delete the observed object is raised.
-	// Note: If only one value is provided without "/", then it will be used as the name of primary resource
+	// Note: If only one value is provided without "/", then it will be used as the name of primary resource.
 	NamespacedNameAnnotation = "operator-sdk/primary-resource"
-	// TypeAnnotation - annotation that will be used to verify that the primary resource is the primary resource to use.
-	// It is of the form type:schema.GroupKind, eg: operator-sdk/owner-type:core.Pods
+	// TypeAnnotation - annotation that will be used to verify that the primary resource is the one to use.
+	// It is of the form type:schema.GroupKind, eg: operator-sdk/primary-resource-type:core.Pods
 	TypeAnnotation = "operator-sdk/primary-resource-type"
 )
 
 // EnqueueRequestForAnnotation enqueues Requests based on the presence of an annotation that contains the
 // namespaced name of the primary resource.
+// The purpose of this handler is to support cross-scope ownership
+// relationships that are not supported by native owner references.
 //
-// The primary usecase for this, is to have a controller enqueue requests for the following scenarios
-// 1. namespaced primary object and dependent cluster scoped resource
-// 2. cluster scoped primary object.
-// 3. namespaced primary object and dependent namespaced scoped but in a different namespace object.
+// This handler should ALWAYS be paired with a finalizer on the primary resource. While the
+// annotation-based watch handler does not have the same scope restrictions that owner references
+// do, they also do not have the garbage collection guarantees that owner references do. Therefore,
+// if the reconciler of a primary resource creates a child resource across scopes not supported by
+// owner references, it is up to the reconciler to clean up that child resource.
+
+// **Examples:**
+//
+// The following code will enqueue a Request to the `primary-resource-namespace` when some change occurs in a Pod
+// resource:
+//
+// ...
+// annotation := schema.GroupKind{Group: "ReplicaSet", Kind: "apps"}
+// if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForAnnotation{annotation}); err != nil {
+//    entryLog.Error(err, "unable to watch Pods")
+//    os.Exit(1)
+// }
+// ...
+//
+// With the annotations:
+//
+// ...
+// annotations:
+//    operator-sdk/primary-resource:my-namespace/my-replicaset
+//    operator-sdk/primary-resource-type:apps.ReplicaSet
+// ...
+//
+// The following code will enqueue a Request to the `primary-resource-namespace`, ReplicaSet reconcile,
+// when some change occurs in a ClusterRole resource
+//
+// ...
+// if err := c.Watch(&source.Kind{
+//	  // Watch cluster roles
+//	  Type: &rbacv1.ClusterRole{}},
+//
+//	  // Enqueue ReplicaSet reconcile requests using the
+//	  // namespacedName annotation value in the request.
+//	  &handler.EnqueueRequestForAnnotation{schema.GroupKind{Group:"ReplicaSet", Kind:"apps"}}); err != nil {
+//	      entryLog.Error(err, "unable to watch ClusterRole")
+//	      os.Exit(1)
+//    }
+// }
+// ...
+// With the annotations:
+//
+// ...
+// annotations:
+//    operator-sdk/primary-resource:my-namespace/my-replicaset
+//    operator-sdk/primary-resource-type:apps.ReplicaSet
+// ...
+//
+// **NOTE** Cluster-scoped resources will have the NamespacedNameAnnotation such as:
+// `operator-sdk/primary-resource:my-replicaset
 type EnqueueRequestForAnnotation struct {
 	Type schema.GroupKind
 }
@@ -85,6 +136,7 @@ func (e *EnqueueRequestForAnnotation) Generic(evt event.GenericEvent, q workqueu
 	}
 }
 
+// getAnnotationRequests will check if the object has the annotations for the watch handler and requeue.
 func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object) (bool, reconcile.Request) {
 	if typeString, ok := object.GetAnnotations()[TypeAnnotation]; ok && typeString == e.Type.String() {
 		namespacedNameString, ok := object.GetAnnotations()[NamespacedNameAnnotation]
@@ -100,6 +152,8 @@ func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object
 	return false, reconcile.Request{}
 }
 
+// parseNamespacedName will parse the value informed in the NamespacedNameAnnotation and return types.NamespacedName.
+// Note that if just one value is informed, then it will be set as the name.
 func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 	values := strings.SplitN(namespacedNameString, "/", 2)
 	if len(values) == 1 {
@@ -117,20 +171,9 @@ func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 	return types.NamespacedName{}
 }
 
-// SetOwnerAnnotation sets annotations for dependent resources that needs to be watched by namespaced Owners.
-// func SetOwnerAnnotation(u *unstructured.Unstructured, owner *unstructured.Unstructured) {
-// 	a := u.GetAnnotations()
-// 	if a == nil {
-// 		a = map[string]string{}
-// 	}
-
-// 	nn := types.NamespacedName{Namespace: owner.GetNamespace(), Name: owner.GetName()}
-// 	a[NamespacedNameAnnotation] = nn.String()
-
-// 	a[TypeAnnotation] = owner.GetObjectKind().GroupVersionKind().GroupKind().String()
-// 	u.SetAnnotations(a)
-// }
-
+// SetWatchOwnerAnnotation is a helper method to add watch annotation-based with the owner NamespacedName and
+// schema.GroupKind to the object provided. This allows you to declare the watch annotations of an owner to an object.
+// If a annotation to the same object already exists, it'll be overwritten with the newly provided version.
 func SetOwnerAnnotation(owner, object metav1.Object, ownerGK schema.GroupKind) error {
 	if len(owner.GetName()) < 1 {
 		return fmt.Errorf("%T does not have a name, cannot call SetOwnerAnnotation", owner)

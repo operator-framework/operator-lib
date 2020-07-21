@@ -28,7 +28,7 @@ import (
 
 func TestEventhandler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Enqueue_anootation Suite", []Reporter{printer.NewlineReporter{}})
+	RunSpecsWithDefaultAndCustomReporters(t, "Enqueue_annotation Suite", []Reporter{printer.NewlineReporter{}})
 }
 
 var testenv *envtest.Environment
