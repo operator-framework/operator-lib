@@ -49,7 +49,6 @@ const (
 // 2. cluster scoped primary object.
 // 3. namespaced primary object and dependent namespaced scoped but in a different namespace object.
 type EnqueueRequestForAnnotation struct {
-	// Type string
 	Type schema.GroupKind
 }
 
