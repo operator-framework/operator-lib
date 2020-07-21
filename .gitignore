@@ -1,6 +1,5 @@
 vendor*
-coverage-all.out
-coverage.out
+cover.out
 
 # IDE baggage
 .idea/
