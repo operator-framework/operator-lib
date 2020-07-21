@@ -34,8 +34,7 @@ import (
 type runModeType string
 
 const (
-	localRunMode   runModeType = "local"
-	clusterRunMode runModeType = "cluster"
+	localRunMode runModeType = "local"
 )
 
 // forceRunModeEnv indicates if the operator should be forced to run in either local
