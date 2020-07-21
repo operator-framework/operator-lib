@@ -2,13 +2,12 @@ package status
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,16 +66,10 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionDeepCopy", func() {
 
-		var (
-			a     Condition
-			aCopy Condition
-		)
+		var aCopy Condition
 
-		// BeforeEach(func() {
-		a = generateCondition("A", corev1.ConditionTrue)
+		a := generateCondition("A", corev1.ConditionTrue)
 		a.DeepCopyInto(&aCopy)
-
-		// })
 
 		Context("Testing for Type", func() {
 			It(fmt.Sprintf(" should be equal to %+v", a.Type), func() {
@@ -112,20 +105,9 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionsSetEmpty", func() {
 
-		var (
-			conditions        Conditions
-			setCondition      Condition
-			expectedCondition Condition
-			actualCondition   *Condition
-		)
+		conditions := initConditions()
+		setCondition := generateCondition("A", corev1.ConditionTrue)
 
-		// ask about this
-		// BeforeEach(func() {
-		conditions = initConditions()
-		setCondition = generateCondition("A", corev1.ConditionTrue)
-		// })
-
-		// ask about this
 		temp := conditions.SetCondition(setCondition)
 		Describe("Before adding the transition time", func() {
 			It(" should be true for setCondition", func() {
@@ -133,16 +115,13 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		expectedCondition = withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-		actualCondition = conditions.GetCondition(setCondition.Type)
+		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+		actualCondition := conditions.GetCondition(setCondition.Type)
 
 		Describe("After adding the transition time", func() {
 			It(" length of conditions should be equal to 1", func() {
 				Expect(len(conditions)).To(Equal(1))
 			})
-		})
-
-		Describe("After adding the transition time", func() {
 			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
@@ -152,17 +131,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionsSetNotExists", func() {
 
-		var (
-			conditions        Conditions
-			setCondition      Condition
-			expectedCondition Condition
-			actualCondition   *Condition
-		)
-
-		// BeforeEach(func() {
-		conditions = initConditions(generateCondition("B", corev1.ConditionTrue))
-		setCondition = generateCondition("A", corev1.ConditionTrue)
-		// })
+		conditions := initConditions(generateCondition("B", corev1.ConditionTrue))
+		setCondition := generateCondition("A", corev1.ConditionTrue)
 
 		temp := conditions.SetCondition(setCondition)
 		Describe("Before adding the transition time", func() {
@@ -171,16 +141,13 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		expectedCondition = withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-		actualCondition = conditions.GetCondition(expectedCondition.Type)
+		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
 
 		Describe("After adding the transition time", func() {
 			It(" length of conditions should be equal to 2", func() {
 				Expect(len(conditions)).To(Equal(2))
 			})
-		})
-
-		Describe("After adding the transition time", func() {
 			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
@@ -190,19 +157,9 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionsSetExistsIdentical", func() {
 
-		var (
-			conditions        Conditions
-			setCondition      Condition
-			expectedCondition Condition
-			actualCondition   *Condition
-			existingCondition Condition
-		)
-
-		// BeforeEach(func() {
-		existingCondition = generateCondition("A", corev1.ConditionTrue)
-		conditions = initConditions(existingCondition)
-		setCondition = existingCondition
-		// })
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
 
 		temp := conditions.SetCondition(setCondition)
 		Describe("Before adding the transition time", func() {
@@ -211,16 +168,13 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		expectedCondition = withLastTransitionTime(setCondition, initTime)
-		actualCondition = conditions.GetCondition(expectedCondition.Type)
+		expectedCondition := withLastTransitionTime(setCondition, initTime)
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
 
 		Describe("After adding the transition time", func() {
 			It(" length of conditions should be equal to 1", func() {
 				Expect(len(conditions)).To(Equal(1))
 			})
-		})
-
-		Describe("After adding the transition time", func() {
 			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
@@ -230,20 +184,10 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionsSetExistsDifferentReason", func() {
 
-		var (
-			conditions        Conditions
-			setCondition      Condition
-			expectedCondition Condition
-			actualCondition   *Condition
-			existingCondition Condition
-		)
-
-		// BeforeEach(func() {
-		existingCondition = generateCondition("A", corev1.ConditionTrue)
-		conditions = initConditions(existingCondition)
-		setCondition = existingCondition
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
 		setCondition.Reason = "ChangedReason"
-		// })
 
 		temp := conditions.SetCondition(setCondition)
 		Describe("Before adding the transition time", func() {
@@ -252,16 +196,13 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		expectedCondition = withLastTransitionTime(setCondition, initTime)
-		actualCondition = conditions.GetCondition(expectedCondition.Type)
+		expectedCondition := withLastTransitionTime(setCondition, initTime)
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
 
 		Describe("After adding the transition time", func() {
 			It(" length of conditions should be equal to 1", func() {
 				Expect(len(conditions)).To(Equal(1))
 			})
-		})
-
-		Describe("After adding the transition time", func() {
 			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
@@ -271,21 +212,11 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	Describe("TestConditionsSetExistsDifferentStatus", func() {
 
-		var (
-			conditions        Conditions
-			setCondition      Condition
-			expectedCondition Condition
-			actualCondition   *Condition
-			existingCondition Condition
-		)
-
-		// BeforeEach(func() {
-		existingCondition = generateCondition("A", corev1.ConditionTrue)
-		conditions = initConditions(existingCondition)
-		setCondition = existingCondition
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
 		setCondition.Status = corev1.ConditionFalse
 		setCondition.Reason = "ChangedReason"
-		// })
 
 		temp := conditions.SetCondition(setCondition)
 		Describe("Before adding the transition time", func() {
@@ -294,16 +225,13 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		expectedCondition = withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-		actualCondition = conditions.GetCondition(expectedCondition.Type)
+		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
 
 		Describe("After adding the transition time", func() {
 			It(" length of conditions should be equal to 1", func() {
 				Expect(len(conditions)).To(Equal(1))
 			})
-		})
-
-		Describe("After adding the transition time", func() {
 			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
@@ -312,15 +240,9 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsGetNotExists", func() {
-		var (
-			conditions      Conditions
-			actualCondition *Condition
-		)
 
-		// BeforeEach(func() {
-		conditions = initConditions(generateCondition("A", corev1.ConditionTrue))
-		actualCondition = conditions.GetCondition(ConditionType("B"))
-		// })
+		conditions := initConditions(generateCondition("A", corev1.ConditionTrue))
+		actualCondition := conditions.GetCondition(ConditionType("B"))
 
 		Describe("Testing Getcondtion for a non existing value", func() {
 			It(" should be empty for getCondition", func() {
@@ -331,9 +253,7 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsRemoveFromNilConditions", func() {
-		var (
-			conditions *Conditions
-		)
+		var conditions *Conditions
 
 		Describe("Testing if we can remove non present element", func() {
 			It(" should be false for RemoveCondition", func() {
@@ -344,11 +264,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsRemoveNotExists", func() {
-		var (
-			conditions Conditions
-		)
 
-		conditions = initConditions(
+		conditions := initConditions(
 			generateCondition("A", corev1.ConditionTrue),
 			generateCondition("B", corev1.ConditionTrue),
 		)
@@ -366,9 +283,6 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			It(" should not be empty for getCondition for a", func() {
 				Expect(a).ShouldNot(BeNil())
 			})
-		})
-
-		Describe("Testing Getcondtion for a non existing value", func() {
 			It(" should not be empty for getCondition for b", func() {
 				Expect(b).ShouldNot(BeNil())
 			})
@@ -383,11 +297,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsRemoveExists", func() {
-		var (
-			conditions Conditions
-		)
 
-		conditions = initConditions(
+		conditions := initConditions(
 			generateCondition("A", corev1.ConditionTrue),
 			generateCondition("B", corev1.ConditionTrue),
 		)
@@ -406,9 +317,6 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			It(" should be empty for getCondition for a", func() {
 				Expect(a).Should(BeNil())
 			})
-		})
-
-		Describe("Testing Getcondtion for a non existing value", func() {
 			It(" should not be empty for getCondition for b", func() {
 				Expect(b).ShouldNot(BeNil())
 			})
@@ -423,11 +331,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsIsTrueFor", func() {
-		var (
-			conditions Conditions
-		)
 
-		conditions = NewConditions(
+		conditions := NewConditions(
 			generateCondition("False", corev1.ConditionFalse),
 			generateCondition("True", corev1.ConditionTrue),
 			generateCondition("Unknown", corev1.ConditionUnknown),
@@ -460,11 +365,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsIsFalseFor", func() {
-		var (
-			conditions Conditions
-		)
 
-		conditions = NewConditions(
+		conditions := NewConditions(
 			generateCondition("False", corev1.ConditionFalse),
 			generateCondition("True", corev1.ConditionTrue),
 			generateCondition("Unknown", corev1.ConditionUnknown),
@@ -497,11 +399,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 	})
 
 	Describe("TestConditionsIsUnknownFor", func() {
-		var (
-			conditions Conditions
-		)
 
-		conditions = NewConditions(
+		conditions := NewConditions(
 			generateCondition("False", corev1.ConditionFalse),
 			generateCondition("True", corev1.ConditionTrue),
 			generateCondition("Unknown", corev1.ConditionUnknown),
@@ -555,26 +454,26 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			Fail(fmt.Sprintf("Failed to unmarshal JSON: %s", err))
 		}
 
-		Describe("A", func() {
-			It(" A", func() {
+		Describe("Condition A", func() {
+			It(fmt.Sprintf(" should be equal to %+v", a.Type), func() {
 				Expect(in[0].Type).To(Equal(a.Type))
 			})
 		})
 
-		Describe("B", func() {
-			It(" B", func() {
+		Describe("Condition B", func() {
+			It(fmt.Sprintf(" should be equal to %+v", b.Type), func() {
 				Expect(in[1].Type).To(Equal(b.Type))
 			})
 		})
 
-		Describe("C", func() {
-			It(" C", func() {
+		Describe("Condition C", func() {
+			It(fmt.Sprintf(" should be equal to %+v", c.Type), func() {
 				Expect(in[2].Type).To(Equal(c.Type))
 			})
 		})
 
-		Describe("D", func() {
-			It(" D", func() {
+		Describe("Condition D", func() {
+			It(fmt.Sprintf(" should be equal to %+v", d.Type), func() {
 				Expect(in[3].Type).To(Equal(d.Type))
 			})
 		})
@@ -586,8 +485,8 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			Fail(fmt.Sprintf("Failed to unmarshal JSON: %s", err))
 		}
 
-		Describe("XYZ", func() {
-			It(" XYZ", func() {
+		Describe("Unmarshalled conditions", func() {
+			It(" should equal original conditions", func() {
 				Expect(unmarshalConds).To(Equal(conditions))
 			})
 		})
