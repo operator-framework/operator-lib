@@ -39,6 +39,9 @@ var errNoNamespace = fmt.Errorf("namespace not found for current environment")
 // which is the name of the current pod.
 const podNameEnvVar = "POD_NAME"
 
+// defaultNamespaceLocation is the default location where namespace information is stored
+var defaultNamespaceLocation = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
 var log = logf.Log.WithName("leader")
 
 // maxBackoffInterval defines the maximum amount of time to wait between
@@ -196,7 +199,7 @@ func isPodEvicted(pod corev1.Pod) bool {
 
 // getOperatorNamespace returns the namespace the operator should be running in.
 func getOperatorNamespace() (string, error) {
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	nsBytes, err := ioutil.ReadFile(defaultNamespaceLocation)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", errNoNamespace
