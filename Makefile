@@ -9,7 +9,7 @@ build: $(SOURCES) ## Build Test
 	go build -i -ldflags="-s -w" ./...
 
 lint: golangci-lint ## Run golint
-	@golangci-lint run
+	@$(GOLANGCI_LINT) run
 
 fmt: ## Run go fmt
 	@gofmt -d $(SOURCES)
