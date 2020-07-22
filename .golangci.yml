@@ -1,0 +1,24 @@
+linters:
+  disable-all: true
+  enable:
+    - nakedret
+    - interfacer
+    - varcheck
+    - deadcode
+    - structcheck
+    - misspell
+    - maligned
+    - ineffassign
+    - goconst
+    - goimports
+    - errcheck
+    - unparam
+    - golint
+    - staticcheck
+    - gosimple
+    - unused
+    - govet
+    - typecheck
+
+run:
+  deadline: 5m

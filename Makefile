@@ -9,25 +9,7 @@ build: $(SOURCES) ## Build Test
 	go build -i -ldflags="-s -w" ./...
 
 lint: golangci-lint ## Run golint
-	@golangci-lint run --disable-all \
-		--deadline 5m \
-		--enable=nakedret \
-		--enable=interfacer \
-		--enable=varcheck \
-		--enable=deadcode \
-		--enable=structcheck \
-		--enable=misspell \
-		--enable=maligned \
-		--enable=ineffassign \
-		--enable=goconst \
-		--enable=goimports \
-		--enable=errcheck \
-		--enable=dupl \
-		--enable=unparam \
-		--enable=golint \
-		--enable=staticcheck \
-		--enable=unused \
-		--enable=gosimple \
+	@$(GOLANGCI_LINT) run
 
 fmt: ## Run go fmt
 	@gofmt -d $(SOURCES)
