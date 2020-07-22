@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	crtHandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,74 +32,53 @@ import (
 var log = logf.Log.WithName("event_handler")
 
 const (
-	// NamespacedNameAnnotation - annotation that will be used to get the primary resource namespaced name.
-	// The handler will use this value to build types.NamespacedName Object used to enqueue a Request when an event
-	// to update, create or delete the observed object is raised.
-	// Note: If only one value is provided without "/", then it will be used as the name of primary resource.
+	// NamespacedNameAnnotation is an annotation whose value encodes the name and namespace of a resource to reconcile
+	// when a resource containing this annotation changes. Valid values are of the form `<namespace>/<name>` for
+	// namespace-scoped owners and `<name>` for cluster-scoped owners.
 	NamespacedNameAnnotation = "operator-sdk/primary-resource"
-	// TypeAnnotation - annotation that will be used to verify that the primary resource is the one to use.
-	// It is of the form type:schema.GroupKind, eg: operator-sdk/primary-resource-type:core.Pods
+	// TypeAnnotation is an annotation whose value encodes the group and kind of a resource to reconcil when a
+	// resource containing this annotation changes. Valid values are of the form `<Kind>` for resource in the
+	// core group, and `<Kind>.<group>` for all other resources.
 	TypeAnnotation = "operator-sdk/primary-resource-type"
 )
 
-// EnqueueRequestForAnnotation enqueues Requests based on the presence of an annotation that contains the
-// namespaced name of the primary resource.
-// The purpose of this handler is to support cross-scope ownership
-// relationships that are not supported by native owner references.
-//
-// This handler should ALWAYS be paired with a finalizer on the primary resource. While the
-// annotation-based watch handler does not have the same scope restrictions that owner references
-// do, they also do not have the garbage collection guarantees that owner references do. Therefore,
-// if the reconciler of a primary resource creates a child resource across scopes not supported by
-// owner references, it is up to the reconciler to clean up that child resource.
+// EnqueueRequestForAnnotation enqueues Request containing the Name and Namespace specified in the
+// annotations of the object that is the source of the Event. The source of the event triggers reconciliation
+// of the parent resource which is identified by annotations. `NamespacedNameAnnotation` and `TypeAnnotation` together uniquely
+// identify an owner resource to reconcile.
+// handler.EnqueueRequestForAnnotation can be used to trigger reconciliation of resources which are cross-referenced.
+// This allows a namespace-scoped dependent to trigger reconciliation of an owner which is in a different namespace, and
+// a cluster-scoped dependent can trigger the reconciliation of a namespace(scoped)-owner.
 
-// **Examples:**
-//
-// The following code will enqueue a Request to the `primary-resource-namespace` when some change occurs in a Pod
-// resource:
-//
-// ...
-// annotation := schema.GroupKind{Group: "ReplicaSet", Kind: "apps"}
-// if err := c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForAnnotation{annotation}); err != nil {
-//    entryLog.Error(err, "unable to watch Pods")
-//    os.Exit(1)
-// }
-// ...
-//
-// With the annotations:
-//
-// ...
-// annotations:
-//    operator-sdk/primary-resource:my-namespace/my-replicaset
-//    operator-sdk/primary-resource-type:apps.ReplicaSet
-// ...
-//
-// The following code will enqueue a Request to the `primary-resource-namespace`, ReplicaSet reconcile,
-// when some change occurs in a ClusterRole resource
-//
+// As an example, consider the case where we would like to watch clusterroles based on which we reconcile namespace-scoped replicasets.
+// With native owner references, this would not be possible since the cluster-scoped dependent (clusterroles) is trying to
+// specify a namespace-scoped owner (replicasets). Whereas in case of annotations-based handlers, we could implement the following:
+
 // ...
 // if err := c.Watch(&source.Kind{
-//	  // Watch cluster roles
+//	  // Watch clusterroles
 //	  Type: &rbacv1.ClusterRole{}},
 //
-//	  // Enqueue ReplicaSet reconcile requests using the
-//	  // namespacedName annotation value in the request.
-//	  &handler.EnqueueRequestForAnnotation{schema.GroupKind{Group:"ReplicaSet", Kind:"apps"}}); err != nil {
+//	  // Enqueue ReplicaSet reconcile requests using the namespacedName annotation value in the request.
+//	  &handler.EnqueueRequestForAnnotation{schema.GroupKind{Group:"apps", Kind:"ReplicaSet"}}); err != nil {
 //	      entryLog.Error(err, "unable to watch ClusterRole")
 //	      os.Exit(1)
 //    }
 // }
 // ...
-// With the annotations:
+
+// With this watch, the ReplicaSet reconciler would receive a request to reconcile "my-namespace/my-replicaset" based
+// on a change to a ClusterRole that has the following annotations:
 //
-// ...
 // annotations:
-//    operator-sdk/primary-resource:my-namespace/my-replicaset
-//    operator-sdk/primary-resource-type:apps.ReplicaSet
-// ...
+//   	operator-sdk/primary-resource:"my-namespace/my-replicaset"
+//    	operator-sdk/primary-resource-type:"ReplicaSet.apps"
 //
-// **NOTE** Cluster-scoped resources will have the NamespacedNameAnnotation such as:
-// `operator-sdk/primary-resource:my-replicaset
+// Though an annotation-based watch handler removes the boundaries set by native owner reference implementation,
+// the garbage collector still respects the scope restrictions. For example,
+// if a parent creates a child resource across scopes not supported by owner references, it becomes the
+// responsibility of the reconciler to clean up the child resource. Hence, the resource utilizing this handler
+// SHOULD ALWAYS BE IMPLEMENTED WITH A FINALIZER.
 type EnqueueRequestForAnnotation struct {
 	Type schema.GroupKind
 }
@@ -136,14 +116,18 @@ func (e *EnqueueRequestForAnnotation) Generic(evt event.GenericEvent, q workqueu
 	}
 }
 
-// getAnnotationRequests will check if the object has the annotations for the watch handler and requeue.
+// getAnnotationRequests checks if the provided object has the annotations so as to enqueue the reconcile request.
 func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object) (bool, reconcile.Request) {
+	if len(object.GetAnnotations()) == 0 {
+		return false, reconcile.Request{}
+	}
+
 	if typeString, ok := object.GetAnnotations()[TypeAnnotation]; ok && typeString == e.Type.String() {
 		namespacedNameString, ok := object.GetAnnotations()[NamespacedNameAnnotation]
 		if !ok {
 			log.Info("Unable to find namespaced name annotation for resource", "resource", object)
 		}
-		if len(namespacedNameString) < 1 {
+		if strings.TrimSpace(namespacedNameString) == "" {
 			return false, reconcile.Request{}
 		}
 		nsn := parseNamespacedName(namespacedNameString)
@@ -152,46 +136,41 @@ func (e *EnqueueRequestForAnnotation) getAnnotationRequests(object metav1.Object
 	return false, reconcile.Request{}
 }
 
-// parseNamespacedName will parse the value informed in the NamespacedNameAnnotation and return types.NamespacedName.
-// Note that if just one value is informed, then it will be set as the name.
+// parseNamespacedName parses the provided string to extract the namespace and name into a
+// types.NamespacedName. The edge case of empty string is handled prior to calling this function.
 func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 	values := strings.SplitN(namespacedNameString, "/", 2)
-	if len(values) == 1 {
-		return types.NamespacedName{
-			Name:      values[0],
-			Namespace: "",
-		}
+
+	switch len(values) {
+	case 1:
+		return types.NamespacedName{Name: values[0]}
+	default:
+		return types.NamespacedName{Namespace: values[0], Name: values[1]}
 	}
-	if len(values) >= 2 {
-		return types.NamespacedName{
-			Name:      values[1],
-			Namespace: values[0],
-		}
-	}
-	return types.NamespacedName{}
 }
 
-// SetWatchOwnerAnnotation is a helper method to add watch annotation-based with the owner NamespacedName and
-// schema.GroupKind to the object provided. This allows you to declare the watch annotations of an owner to an object.
-// If a annotation to the same object already exists, it'll be overwritten with the newly provided version.
-func SetOwnerAnnotation(owner, object metav1.Object, ownerGK schema.GroupKind) error {
-	if len(owner.GetName()) < 1 {
-		return fmt.Errorf("%T does not have a name, cannot call SetOwnerAnnotation", owner)
+// SetOwnerAnnotations helps in adding 'NamespacedNameAnnotation' and 'TypeAnnotation' to object based on the values
+// obtained from owner. The object gets the annotations from owner's namespace, name, group and kind. In other terms,
+// object can be said to be the dependent having annotations from the owner. When a watch is set on the object, the
+// annotations help to identify the owner and trigger reconciliation.
+// Annotations are ALWAYS overwritten.
+func SetOwnerAnnotations(owner, object controllerutil.Object) error {
+	if owner.GetName() == "" {
+		return fmt.Errorf("%T does not have a name, cannot call SetOwnerAnnotations", owner)
 	}
 
-	if len(ownerGK.Kind) < 1 {
-		return fmt.Errorf("Owner Kind not found, cannot call SetOwnerAnnotation")
-	}
+	ownerGK := owner.GetObjectKind().GroupVersionKind().GroupKind()
 
-	if len(ownerGK.Group) < 1 {
-		return fmt.Errorf("Owner Group not found, cannot call SetOwnerAnnotation")
+	if ownerGK.Kind == "" {
+		return fmt.Errorf("Owner %s Kind not found, cannot call SetOwnerAnnotations", owner.GetName())
 	}
 
 	annotations := object.GetAnnotations()
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations[NamespacedNameAnnotation] = fmt.Sprintf("%v/%v", owner.GetNamespace(), owner.GetName())
+
+	annotations[NamespacedNameAnnotation] = fmt.Sprintf("%s/%s", owner.GetNamespace(), owner.GetName())
 	annotations[TypeAnnotation] = ownerGK.String()
 
 	object.SetAnnotations(annotations)
