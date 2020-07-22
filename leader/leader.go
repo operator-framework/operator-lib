@@ -31,23 +31,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type runModeType string
-
-const (
-	localRunMode runModeType = "local"
-)
-
-// forceRunModeEnv indicates if the operator should be forced to run in either local
-// or cluster mode (currently only used for local mode)
-var forceRunModeEnv = "OSDK_FORCE_RUN_MODE"
-
 // errNoNamespace indicates that a namespace could not be found for the current
 // environment
 var errNoNamespace = fmt.Errorf("namespace not found for current environment")
-
-// errRunLocal indicates that the operator is set to run in local mode (this error
-// is returned by functions that only work on operators running in cluster mode)
-var errRunLocal = fmt.Errorf("operator run mode forced to local")
 
 // podNameEnvVar is the constant for env variable POD_NAME
 // which is the name of the current pod.
@@ -71,7 +57,7 @@ func Become(ctx context.Context, lockName string) error {
 
 	ns, err := getOperatorNamespace()
 	if err != nil {
-		if err == errNoNamespace || err == errRunLocal {
+		if err == errNoNamespace {
 			log.Info("Skipping leader election; not running in a cluster.")
 			return nil
 		}
@@ -210,9 +196,6 @@ func isPodEvicted(pod corev1.Pod) bool {
 
 // getOperatorNamespace returns the namespace the operator should be running in.
 func getOperatorNamespace() (string, error) {
-	if isRunModeLocal() {
-		return "", errRunLocal
-	}
 	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -225,17 +208,10 @@ func getOperatorNamespace() (string, error) {
 	return ns, nil
 }
 
-func isRunModeLocal() bool {
-	return os.Getenv(forceRunModeEnv) == string(localRunMode)
-}
-
 // getPod returns a Pod object that corresponds to the pod in which the code
 // is currently running.
 // It expects the environment variable POD_NAME to be set by the downwards API.
 func getPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod, error) {
-	if isRunModeLocal() {
-		return nil, errRunLocal
-	}
 	podName := os.Getenv(podNameEnvVar)
 	if podName == "" {
 		return nil, fmt.Errorf("required env %s not set, please configure downward API", podNameEnvVar)
