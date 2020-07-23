@@ -16,8 +16,8 @@ import (
 var _ = Describe("Leader", func() {
 
 	Describe("Become", func() {
-		os.Unsetenv("POD_NAME")
 		It("should return an error when POD_NAME is not set", func() {
+			os.Unsetenv("POD_NAME")
 			err := Become(context.TODO(), "leader-test")
 			Expect(err).ShouldNot(BeNil())
 		})
