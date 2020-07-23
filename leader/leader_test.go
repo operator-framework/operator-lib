@@ -58,7 +58,9 @@ var _ = Describe("Leader", func() {
 				Fail(err.Error())
 			}
 			defer os.Remove(nsFile.Name())
-			defaultNamespaceLocation = nsFile.Name()
+			readNamespace = func() ([]byte, error) {
+				return ioutil.ReadFile(nsFile.Name())
+			}
 
 			// test
 			namespace, err := getOperatorNamespace()
@@ -72,7 +74,9 @@ var _ = Describe("Leader", func() {
 				Fail(err.Error())
 			}
 			defer os.Remove(nsFile.Name())
-			defaultNamespaceLocation = nsFile.Name()
+			readNamespace = func() ([]byte, error) {
+				return ioutil.ReadFile(nsFile.Name())
+			}
 
 			// test
 			namespace, err := getOperatorNamespace()
