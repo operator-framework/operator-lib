@@ -62,7 +62,7 @@ func withLastTransitionTime(c Condition, t time.Time) Condition {
 	return c
 }
 
-var _ = Describe("Testing Conditions.go\n", func() {
+var _ = Describe("Condition", func() {
 
 	Describe("TestConditionDeepCopy", func() {
 
@@ -77,7 +77,7 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		Context("Testing for Satus", func() {
+		Context("Testing for Status", func() {
 			It(fmt.Sprintf(" should be equal to %+v", a.Status), func() {
 				Expect(aCopy.Status).To(Equal(a.Status))
 			})
@@ -95,7 +95,7 @@ var _ = Describe("Testing Conditions.go\n", func() {
 			})
 		})
 
-		Context("Testing for LastTransactionTime", func() {
+		Context("Testing for LastTransitionTime", func() {
 			It(fmt.Sprintf(" should be equal to %+v", a.LastTransitionTime), func() {
 				Expect(aCopy.LastTransitionTime).To(Equal(a.LastTransitionTime))
 			})
@@ -103,108 +103,134 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	})
 
-	Describe("TestConditionsSetEmpty", func() {
+	Describe("Checking for IsTrue, IsFalse and IsUnknown", func() {
 
-		conditions := initConditions()
-		setCondition := generateCondition("A", corev1.ConditionTrue)
+		temp := generateCondition("Temp", corev1.ConditionTrue)
 
-		temp := conditions.SetCondition(setCondition)
-		Describe("Before adding the transition time", func() {
-			It(" should be true for setCondition", func() {
-				Expect(temp).Should(BeTrue())
+		// fmt.Println(temp.Status)
+		// fmt.Println(temp.IsTrue())
+
+		It(" should be True for IsTrue", func() {
+			Expect(temp.Status).Should(Equal(corev1.ConditionTrue))
+		})
+
+		// temp.Status = corev1.ConditionFalse
+		// // fmt.Println(temp.Status)
+		// fmt.Println(temp.IsFalse())
+		// It(" should be True for IsFalse", func() {
+		// 	Expect(temp.IsFalse()).Should(BeTrue())
+		// })
+
+		// temp.Status = corev1.ConditionUnknown
+		// // fmt.Println(temp.Status)
+		// // fmt.Println(temp.IsUnknown())
+		// It(" should be True for IsUnknown", func() {
+		// 	Expect(temp.IsUnknown()).Should(BeTrue())
+		// })
+
+	})
+
+})
+
+var _ = Describe("Conditions", func() {
+
+	Describe("TestConditionsIsTrueFor", func() {
+
+		conditions := NewConditions(
+			generateCondition("False", corev1.ConditionFalse),
+			generateCondition("True", corev1.ConditionTrue),
+			generateCondition("Unknown", corev1.ConditionUnknown),
+		)
+
+		Describe("Testing if True for conditiontype True", func() {
+			It(" should be True for IsTrueFor", func() {
+				Expect(conditions.IsTrueFor(ConditionType("True"))).Should(BeTrue())
 			})
 		})
 
-		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-		actualCondition := conditions.GetCondition(setCondition.Type)
-
-		Describe("After adding the transition time", func() {
-			It(" length of conditions should be equal to 1", func() {
-				Expect(len(conditions)).To(Equal(1))
+		Describe("Testing if False for conditiontype False", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsTrueFor(ConditionType("False"))).Should(BeFalse())
 			})
-			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
-				Expect(expectedCondition).To(Equal(*actualCondition))
+		})
+
+		Describe("Testing if False for conditiontype Unknown", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsTrueFor(ConditionType("Unknown"))).Should(BeFalse())
+			})
+		})
+
+		Describe("Testing if False for conditiontype DoesNotExist", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsTrueFor(ConditionType("DoesNotExist"))).Should(BeFalse())
 			})
 		})
 
 	})
 
-	Describe("TestConditionsSetNotExists", func() {
+	Describe("TestConditionsIsFalseFor", func() {
 
-		conditions := initConditions(generateCondition("B", corev1.ConditionTrue))
-		setCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := NewConditions(
+			generateCondition("False", corev1.ConditionFalse),
+			generateCondition("True", corev1.ConditionTrue),
+			generateCondition("Unknown", corev1.ConditionUnknown),
+		)
 
-		temp := conditions.SetCondition(setCondition)
-		Describe("Before adding the transition time", func() {
-			It(" should be true for setCondition", func() {
-				Expect(temp).Should(BeTrue())
+		Describe("Testing if False for conditiontype True", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsFalseFor(ConditionType("True"))).Should(BeFalse())
 			})
 		})
 
-		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-		actualCondition := conditions.GetCondition(expectedCondition.Type)
-
-		Describe("After adding the transition time", func() {
-			It(" length of conditions should be equal to 2", func() {
-				Expect(len(conditions)).To(Equal(2))
-			})
-			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
-				Expect(expectedCondition).To(Equal(*actualCondition))
+		Describe("Testing if True for conditiontype False", func() {
+			It(" should be True for IsTrueFor", func() {
+				Expect(conditions.IsFalseFor(ConditionType("False"))).Should(BeTrue())
 			})
 		})
 
-	})
-
-	Describe("TestConditionsSetExistsIdentical", func() {
-
-		existingCondition := generateCondition("A", corev1.ConditionTrue)
-		conditions := initConditions(existingCondition)
-		setCondition := existingCondition
-
-		temp := conditions.SetCondition(setCondition)
-		Describe("Before adding the transition time", func() {
-			It(" should be false for setCondition", func() {
-				Expect(temp).Should(BeFalse())
+		Describe("Testing if False for conditiontype Unknown", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsFalseFor(ConditionType("Unknown"))).Should(BeFalse())
 			})
 		})
 
-		expectedCondition := withLastTransitionTime(setCondition, initTime)
-		actualCondition := conditions.GetCondition(expectedCondition.Type)
-
-		Describe("After adding the transition time", func() {
-			It(" length of conditions should be equal to 1", func() {
-				Expect(len(conditions)).To(Equal(1))
-			})
-			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
-				Expect(expectedCondition).To(Equal(*actualCondition))
+		Describe("Testing if False for conditiontype DoesNotExist", func() {
+			It(" should be False for IsTrueFor", func() {
+				Expect(conditions.IsFalseFor(ConditionType("DoesNotExist"))).Should(BeFalse())
 			})
 		})
 
 	})
 
-	Describe("TestConditionsSetExistsDifferentReason", func() {
+	Describe("TestConditionsIsUnknownFor", func() {
 
-		existingCondition := generateCondition("A", corev1.ConditionTrue)
-		conditions := initConditions(existingCondition)
-		setCondition := existingCondition
-		setCondition.Reason = "ChangedReason"
+		conditions := NewConditions(
+			generateCondition("False", corev1.ConditionFalse),
+			generateCondition("True", corev1.ConditionTrue),
+			generateCondition("Unknown", corev1.ConditionUnknown),
+		)
 
-		temp := conditions.SetCondition(setCondition)
-		Describe("Before adding the transition time", func() {
-			It(" should be true for setCondition", func() {
-				Expect(temp).Should(BeTrue())
+		Describe("Testing if False for conditiontype True", func() {
+			It(" should be False for IsUnknownFor", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("True"))).Should(BeFalse())
 			})
 		})
 
-		expectedCondition := withLastTransitionTime(setCondition, initTime)
-		actualCondition := conditions.GetCondition(expectedCondition.Type)
-
-		Describe("After adding the transition time", func() {
-			It(" length of conditions should be equal to 1", func() {
-				Expect(len(conditions)).To(Equal(1))
+		Describe("Testing if True for conditiontype False", func() {
+			It(" should be False for IsUnknownFor", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("False"))).Should(BeFalse())
 			})
-			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
-				Expect(expectedCondition).To(Equal(*actualCondition))
+		})
+
+		Describe("Testing if True for conditiontype Unknown", func() {
+			It(" should be True for IsUnknownFor", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("Unknown"))).Should(BeTrue())
+			})
+		})
+
+		Describe("Testing if True for conditiontype DoesNotExist", func() {
+			It(" should be True for IsUnknownFor", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("DoesNotExist"))).Should(BeTrue())
 			})
 		})
 
@@ -330,103 +356,108 @@ var _ = Describe("Testing Conditions.go\n", func() {
 
 	})
 
-	Describe("TestConditionsIsTrueFor", func() {
+	Describe("TestConditionsSetEmpty", func() {
 
-		conditions := NewConditions(
-			generateCondition("False", corev1.ConditionFalse),
-			generateCondition("True", corev1.ConditionTrue),
-			generateCondition("Unknown", corev1.ConditionUnknown),
-		)
+		conditions := initConditions()
+		setCondition := generateCondition("A", corev1.ConditionTrue)
 
-		Describe("Testing if True for conditiontype True", func() {
-			It(" should be True for IsTrueFor", func() {
-				Expect(conditions.IsTrueFor(ConditionType("True"))).Should(BeTrue())
+		temp := conditions.SetCondition(setCondition)
+		Describe("Before adding the transition time", func() {
+			It(" should be true for setCondition", func() {
+				Expect(temp).Should(BeTrue())
 			})
 		})
 
-		Describe("Testing if False for conditiontype False", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsTrueFor(ConditionType("False"))).Should(BeFalse())
-			})
-		})
+		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+		actualCondition := conditions.GetCondition(setCondition.Type)
 
-		Describe("Testing if False for conditiontype Unknown", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsTrueFor(ConditionType("Unknown"))).Should(BeFalse())
+		Describe("After adding the transition time", func() {
+			It(" length of conditions should be equal to 1", func() {
+				Expect(len(conditions)).To(Equal(1))
 			})
-		})
-
-		Describe("Testing if False for conditiontype DoesNotExist", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsTrueFor(ConditionType("DoesNotExist"))).Should(BeFalse())
+			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
+				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
 		})
 
 	})
 
-	Describe("TestConditionsIsFalseFor", func() {
+	Describe("TestConditionsSetNotExists", func() {
 
-		conditions := NewConditions(
-			generateCondition("False", corev1.ConditionFalse),
-			generateCondition("True", corev1.ConditionTrue),
-			generateCondition("Unknown", corev1.ConditionUnknown),
-		)
+		conditions := initConditions(generateCondition("B", corev1.ConditionTrue))
+		setCondition := generateCondition("A", corev1.ConditionTrue)
 
-		Describe("Testing if False for conditiontype True", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsFalseFor(ConditionType("True"))).Should(BeFalse())
+		temp := conditions.SetCondition(setCondition)
+		Describe("Before adding the transition time", func() {
+			It(" should be true for setCondition", func() {
+				Expect(temp).Should(BeTrue())
 			})
 		})
 
-		Describe("Testing if True for conditiontype False", func() {
-			It(" should be True for IsTrueFor", func() {
-				Expect(conditions.IsFalseFor(ConditionType("False"))).Should(BeTrue())
-			})
-		})
+		expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
 
-		Describe("Testing if False for conditiontype Unknown", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsFalseFor(ConditionType("Unknown"))).Should(BeFalse())
+		Describe("After adding the transition time", func() {
+			It(" length of conditions should be equal to 2", func() {
+				Expect(len(conditions)).To(Equal(2))
 			})
-		})
-
-		Describe("Testing if False for conditiontype DoesNotExist", func() {
-			It(" should be False for IsTrueFor", func() {
-				Expect(conditions.IsFalseFor(ConditionType("DoesNotExist"))).Should(BeFalse())
+			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
+				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
 		})
 
 	})
 
-	Describe("TestConditionsIsUnknownFor", func() {
+	Describe("TestConditionsSetExistsIdentical", func() {
 
-		conditions := NewConditions(
-			generateCondition("False", corev1.ConditionFalse),
-			generateCondition("True", corev1.ConditionTrue),
-			generateCondition("Unknown", corev1.ConditionUnknown),
-		)
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
 
-		Describe("Testing if False for conditiontype True", func() {
-			It(" should be False for IsUnknownFor", func() {
-				Expect(conditions.IsUnknownFor(ConditionType("True"))).Should(BeFalse())
+		temp := conditions.SetCondition(setCondition)
+		Describe("Before adding the transition time", func() {
+			It(" should be false for setCondition", func() {
+				Expect(temp).Should(BeFalse())
 			})
 		})
 
-		Describe("Testing if True for conditiontype False", func() {
-			It(" should be False for IsUnknownFor", func() {
-				Expect(conditions.IsUnknownFor(ConditionType("False"))).Should(BeFalse())
+		expectedCondition := withLastTransitionTime(setCondition, initTime)
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+		Describe("After adding the transition time", func() {
+			It(" length of conditions should be equal to 1", func() {
+				Expect(len(conditions)).To(Equal(1))
+			})
+			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
+				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
 		})
 
-		Describe("Testing if True for conditiontype Unknown", func() {
-			It(" should be True for IsUnknownFor", func() {
-				Expect(conditions.IsUnknownFor(ConditionType("Unknown"))).Should(BeTrue())
+	})
+
+	Describe("TestConditionsSetExistsDifferentReason", func() {
+
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
+		setCondition.Reason = "ChangedReason"
+
+		temp := conditions.SetCondition(setCondition)
+		Describe("Before adding the transition time", func() {
+			It(" should be true for setCondition", func() {
+				Expect(temp).Should(BeTrue())
 			})
 		})
 
-		Describe("Testing if True for conditiontype DoesNotExist", func() {
-			It(" should be True for IsUnknownFor", func() {
-				Expect(conditions.IsUnknownFor(ConditionType("DoesNotExist"))).Should(BeTrue())
+		expectedCondition := withLastTransitionTime(setCondition, initTime)
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+		Describe("After adding the transition time", func() {
+			It(" length of conditions should be equal to 1", func() {
+				Expect(len(conditions)).To(Equal(1))
+			})
+			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
+				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
 		})
 
