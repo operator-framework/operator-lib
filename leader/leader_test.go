@@ -8,6 +8,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("Leader", func() {
@@ -93,12 +96,37 @@ var _ = Describe("Leader", func() {
 		// TODO: write a test to ensure we get an OwnerReference
 	})
 	Describe("getPod", func() {
-		os.Unsetenv("POD_NAME")
+		var (
+			client crclient.Client
+		)
+		BeforeEach(func() {
+			client = fake.NewFakeClient(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mypod",
+						Namespace: "testns",
+					},
+				},
+			)
+		})
 		It("should return an error when POD_NAME is not set", func() {
+			os.Unsetenv("POD_NAME")
 			_, err := getPod(context.TODO(), nil, "")
 			Expect(err).ShouldNot(BeNil())
 		})
-		// TODO: write a test to ensure we get a Pod
+		It("should return an error if no pod is found", func() {
+			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
+			_, err := getPod(context.TODO(), client, "")
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return the pod with the given name", func() {
+			os.Setenv("POD_NAME", "mypod")
+			pod, err := getPod(context.TODO(), client, "testns")
+			Expect(err).Should(BeNil())
+			Expect(pod).ShouldNot(BeNil())
+			Expect(pod.TypeMeta.APIVersion).To(Equal("v1"))
+			Expect(pod.TypeMeta.Kind).To(Equal("Pod"))
+		})
 	})
 })
 
