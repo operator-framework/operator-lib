@@ -16,12 +16,58 @@ import (
 var _ = Describe("Leader", func() {
 
 	Describe("Become", func() {
+		var (
+			client crclient.Client
+		)
+		BeforeEach(func() {
+			client = fake.NewFakeClient(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+				},
+			)
+		})
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
 			err := Become(context.TODO(), "leader-test")
 			Expect(err).ShouldNot(BeNil())
 		})
-		// TODO: write a test to ensure Become works
+		It("should not return an error", func() {
+			os.Setenv("POD_NAME", "leader-test")
+			nsFile, err := setupNamespace("testns")
+			if err != nil {
+				Fail(err.Error())
+			}
+			defer os.Remove(nsFile.Name())
+			readNamespace = func() ([]byte, error) {
+				return ioutil.ReadFile(nsFile.Name())
+			}
+
+			err = Become(context.TODO(), "leader-test", WithClient(client))
+			Expect(err).Should(BeNil())
+		})
 	})
 	Describe("isPodEvicted", func() {
 		var (

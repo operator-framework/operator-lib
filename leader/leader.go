@@ -49,6 +49,35 @@ var log = logf.Log.WithName("leader")
 // attempts to become the leader.
 const maxBackoffInterval = time.Second * 16
 
+type Option func(*Config) error
+
+type Config struct {
+	Client crclient.Client
+}
+
+func (c *Config) SetDefaults() error {
+	if c.Client == nil {
+		config, err := config.GetConfig()
+		if err != nil {
+			return err
+		}
+
+		client, err := crclient.New(config, crclient.Options{})
+		if err != nil {
+			return err
+		}
+		c.Client = client
+	}
+	return nil
+}
+
+func WithClient(cl crclient.Client) Option {
+	return func(c *Config) error {
+		c.Client = cl
+		return nil
+	}
+}
+
 // Become ensures that the current pod is the leader within its namespace. If
 // run outside a cluster, it will skip leader election and return nil. It
 // continuously tries to create a ConfigMap with the provided name and the
@@ -56,25 +85,27 @@ const maxBackoffInterval = time.Second * 16
 // the same name, so the pod that successfully creates the ConfigMap is the
 // leader. Upon termination of that pod, the garbage collector will delete the
 // ConfigMap, enabling a different pod to become the leader.
-func Become(ctx context.Context, lockName string) error {
+func Become(ctx context.Context, lockName string, opts ...Option) error {
 	log.Info("Trying to become the leader.")
+
+	config := Config{}
+
+	for _, opt := range opts {
+		if err := opt(&config); err != nil {
+			return err
+		}
+	}
+
+	if err := config.SetDefaults(); err != nil {
+		return err
+	}
 
 	ns, err := getOperatorNamespace()
 	if err != nil {
 		return err
 	}
 
-	config, err := config.GetConfig()
-	if err != nil {
-		return err
-	}
-
-	client, err := crclient.New(config, crclient.Options{})
-	if err != nil {
-		return err
-	}
-
-	owner, err := myOwnerRef(ctx, client, ns)
+	owner, err := myOwnerRef(ctx, config.Client, ns)
 	if err != nil {
 		return err
 	}
@@ -82,7 +113,7 @@ func Become(ctx context.Context, lockName string) error {
 	// check for existing lock from this pod, in case we got restarted
 	existing := &corev1.ConfigMap{}
 	key := crclient.ObjectKey{Namespace: ns, Name: lockName}
-	err = client.Get(ctx, key, existing)
+	err = config.Client.Get(ctx, key, existing)
 
 	switch {
 	case err == nil:
@@ -112,7 +143,7 @@ func Become(ctx context.Context, lockName string) error {
 	// try to create a lock
 	backoff := time.Second
 	for {
-		err := client.Create(ctx, cm)
+		err := config.Client.Create(ctx, cm)
 		switch {
 		case err == nil:
 			log.Info("Became the leader.")
@@ -120,7 +151,7 @@ func Become(ctx context.Context, lockName string) error {
 		case apierrors.IsAlreadyExists(err):
 			// refresh the lock so we use current leader
 			key := crclient.ObjectKey{Namespace: ns, Name: lockName}
-			if err := client.Get(ctx, key, existing); err != nil {
+			if err := config.Client.Get(ctx, key, existing); err != nil {
 				log.Info("Leader lock configmap not found.")
 				continue // configmap got lost ... just wait a bit
 			}
@@ -134,7 +165,7 @@ func Become(ctx context.Context, lockName string) error {
 			default:
 				leaderPod := &corev1.Pod{}
 				key = crclient.ObjectKey{Namespace: ns, Name: existingOwners[0].Name}
-				err = client.Get(ctx, key, leaderPod)
+				err = config.Client.Get(ctx, key, leaderPod)
 				switch {
 				case apierrors.IsNotFound(err):
 					log.Info("Leader pod has been deleted, waiting for garbage collection to remove the lock.")
@@ -144,7 +175,7 @@ func Become(ctx context.Context, lockName string) error {
 					log.Info("Operator pod with leader lock has been evicted.", "leader", leaderPod.Name)
 					log.Info("Deleting evicted leader.")
 					// Pod may not delete immediately, continue with backoff
-					err := client.Delete(ctx, leaderPod)
+					err := config.Client.Delete(ctx, leaderPod)
 					if err != nil {
 						log.Error(err, "Leader pod could not be deleted.")
 					}
