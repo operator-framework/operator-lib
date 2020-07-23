@@ -31,9 +31,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// errNoNamespace indicates that a namespace could not be found for the current
+// ErrNoNamespace indicates that a namespace could not be found for the current
 // environment
-var errNoNamespace = fmt.Errorf("namespace not found for current environment")
+var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 
 // podNameEnvVar is the constant for env variable POD_NAME
 // which is the name of the current pod.
@@ -61,10 +61,6 @@ func Become(ctx context.Context, lockName string) error {
 
 	ns, err := getOperatorNamespace()
 	if err != nil {
-		if err == errNoNamespace {
-			log.Info("Skipping leader election; not running in a cluster.")
-			return nil
-		}
 		return err
 	}
 
@@ -203,7 +199,7 @@ func getOperatorNamespace() (string, error) {
 	nsBytes, err := readNamespace()
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", errNoNamespace
+			return "", ErrNoNamespace
 		}
 		return "", err
 	}

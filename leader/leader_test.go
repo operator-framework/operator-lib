@@ -16,7 +16,7 @@ var _ = Describe("Leader", func() {
 		os.Unsetenv("POD_NAME")
 		It("should return an error when POD_NAME is not set", func() {
 			err := Become(context.TODO(), "leader-test")
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(BeNil())
 		})
 		// TODO: write a test to ensure Become works
 	})
@@ -48,7 +48,7 @@ var _ = Describe("Leader", func() {
 	Describe("getOperatorNamespace", func() {
 		It("should return error when namespace not found", func() {
 			namespace, err := getOperatorNamespace()
-			Expect(err).To(Equal(errNoNamespace))
+			Expect(err).To(Equal(ErrNoNamespace))
 			Expect(namespace).To(Equal(""))
 		})
 		It("should return namespace", func() {
