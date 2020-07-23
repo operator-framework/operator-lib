@@ -88,12 +88,37 @@ var _ = Describe("Leader", func() {
 		})
 	})
 	Describe("myOwnerRef", func() {
-		os.Unsetenv("POD_NAME")
+		var (
+			client crclient.Client
+		)
+		BeforeEach(func() {
+			client = fake.NewFakeClient(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mypod",
+						Namespace: "testns",
+					},
+				},
+			)
+		})
 		It("should return an error when POD_NAME is not set", func() {
-			_, err := myOwnerRef(context.TODO(), nil, "")
+			os.Unsetenv("POD_NAME")
+			_, err := myOwnerRef(context.TODO(), client, "")
 			Expect(err).ShouldNot(BeNil())
 		})
-		// TODO: write a test to ensure we get an OwnerReference
+		It("should return an error if no pod is found", func() {
+			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
+			_, err := myOwnerRef(context.TODO(), client, "")
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return the owner reference without error", func() {
+			os.Setenv("POD_NAME", "mypod")
+			owner, err := myOwnerRef(context.TODO(), client, "testns")
+			Expect(err).Should(BeNil())
+			Expect(owner.APIVersion).To(Equal("v1"))
+			Expect(owner.Kind).To(Equal("Pod"))
+			Expect(owner.Name).To(Equal("mypod"))
+		})
 	})
 	Describe("getPod", func() {
 		var (
