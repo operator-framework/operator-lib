@@ -2,6 +2,7 @@ package leader
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -52,6 +53,16 @@ var _ = Describe("Leader election", func() {
 			os.Unsetenv("POD_NAME")
 			err := Become(context.TODO(), "leader-test")
 			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return an ErrNoNamespace", func() {
+			os.Setenv("POD_NAME", "leader-test")
+			readNamespace = func() ([]byte, error) {
+				return nil, os.ErrNotExist
+			}
+			err := Become(context.TODO(), "leader-test", WithClient(client))
+			Expect(err).ShouldNot(BeNil())
+			Expect(err).To(Equal(ErrNoNamespace))
+			Expect(errors.Is(err, ErrNoNamespace)).To(Equal(true))
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
