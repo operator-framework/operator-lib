@@ -78,66 +78,47 @@ func withLastTransitionTime(c Condition, t time.Time) Condition {
 
 var _ = Describe("Condition", func() {
 
-	Describe("TestConditionDeepCopy", func() {
+	Describe("DeepCopyInto", func() {
 
 		var aCopy Condition
 
 		a := generateCondition("A", corev1.ConditionTrue)
-		a.DeepCopyInto(&aCopy)
 
-		Context("Testing for Type", func() {
-			It(fmt.Sprintf(" should be equal to %+v", a.Type), func() {
-				Expect(aCopy.Type).To(Equal(a.Type))
-			})
+		It("should copy one condition to another in its entirety", func() {
+			a.DeepCopyInto(&aCopy)
+			Expect(aCopy.Type).To(Equal(a.Type))
+			Expect(aCopy.Status).To(Equal(a.Status))
+			Expect(aCopy.Reason).To(Equal(a.Reason))
+			Expect(aCopy.Message).To(Equal(a.Message))
+			Expect(aCopy.LastTransitionTime).To(Equal(a.LastTransitionTime))
 		})
-
-		Context("Testing for Status", func() {
-			It(fmt.Sprintf(" should be equal to %+v", a.Status), func() {
-				Expect(aCopy.Status).To(Equal(a.Status))
-			})
-		})
-
-		Context("Testing for Reason", func() {
-			It(fmt.Sprintf(" should be equal to %+v", a.Reason), func() {
-				Expect(aCopy.Reason).To(Equal(a.Reason))
-			})
-		})
-
-		Context("Testing for Message", func() {
-			It(fmt.Sprintf(" should be equal to %+v", a.Message), func() {
-				Expect(aCopy.Message).To(Equal(a.Message))
-			})
-		})
-
-		Context("Testing for LastTransitionTime", func() {
-			It(fmt.Sprintf(" should be equal to %+v", a.LastTransitionTime), func() {
-				Expect(aCopy.LastTransitionTime).To(Equal(a.LastTransitionTime))
-			})
-		})
-
 	})
 
 	Describe("Checking for IsTrue, IsFalse and IsUnknown", func() {
 
 		var temp Condition
 
-		It(" should be True for IsTrue", func() {
+		It(" should be True for IsTrue if present", func() {
 			temp = generateCondition("Temp", corev1.ConditionTrue)
 			Expect(temp.IsTrue()).Should(BeTrue())
 		})
-
-		It(" should be True for IsFalse", func() {
+		It(" should be False for IsTrue if not present", func() {
+			temp = generateCondition("Temp", corev1.ConditionFalse)
+			Expect(temp.IsTrue()).Should(BeFalse())
+		})
+		It(" should be True for IsFalse not present", func() {
 			temp = generateCondition("Temp", corev1.ConditionFalse)
 			Expect(temp.IsFalse()).Should(BeTrue())
 		})
-
+		It(" should be False for IsFalse if present", func() {
+			temp = generateCondition("Temp", corev1.ConditionTrue)
+			Expect(temp.IsFalse()).Should(BeFalse())
+		})
 		It(" should be True for IsUnknown", func() {
 			temp = generateCondition("Temp", corev1.ConditionUnknown)
 			Expect(temp.IsUnknown()).Should(BeTrue())
 		})
-
 	})
-
 })
 
 var _ = Describe("Conditions", func() {
@@ -150,93 +131,37 @@ var _ = Describe("Conditions", func() {
 			generateCondition("Unknown", corev1.ConditionUnknown),
 		)
 
-		Describe("TestConditionsIsTruefor", func() {
-
-			Describe("Testing if True for conditiontype True", func() {
-				It(" should be True for IsTrueFor", func() {
-					Expect(conditions.IsTrueFor(ConditionType("True"))).Should(BeTrue())
-				})
+		Describe("IsTrueFor", func() {
+			It(" should be true only for True", func() {
+				Expect(conditions.IsTrueFor(ConditionType("True"))).Should(BeTrue())
+				Expect(conditions.IsTrueFor(ConditionType("False"))).Should(BeFalse())
+				Expect(conditions.IsTrueFor(ConditionType("Unknown"))).Should(BeFalse())
+				Expect(conditions.IsTrueFor(ConditionType("DoesNotExist"))).Should(BeFalse())
 			})
-
-			Describe("Testing if False for conditiontype False", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsTrueFor(ConditionType("False"))).Should(BeFalse())
-				})
-			})
-
-			Describe("Testing if False for conditiontype Unknown", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsTrueFor(ConditionType("Unknown"))).Should(BeFalse())
-				})
-			})
-
-			Describe("Testing if False for conditiontype DoesNotExist", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsTrueFor(ConditionType("DoesNotExist"))).Should(BeFalse())
-				})
-			})
-
 		})
 
-		Describe("TestConditionsIsFalseFor", func() {
+		Describe("IsFalseFor", func() {
 
-			Describe("Testing if False for conditiontype True", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsFalseFor(ConditionType("True"))).Should(BeFalse())
-				})
+			It(" should be true only for False", func() {
+				Expect(conditions.IsFalseFor(ConditionType("True"))).Should(BeFalse())
+				Expect(conditions.IsFalseFor(ConditionType("False"))).Should(BeTrue())
+				Expect(conditions.IsFalseFor(ConditionType("Unknown"))).Should(BeFalse())
+				Expect(conditions.IsFalseFor(ConditionType("DoesNotExist"))).Should(BeFalse())
 			})
-
-			Describe("Testing if True for conditiontype False", func() {
-				It(" should be True for IsTrueFor", func() {
-					Expect(conditions.IsFalseFor(ConditionType("False"))).Should(BeTrue())
-				})
-			})
-
-			Describe("Testing if False for conditiontype Unknown", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsFalseFor(ConditionType("Unknown"))).Should(BeFalse())
-				})
-			})
-
-			Describe("Testing if False for conditiontype DoesNotExist", func() {
-				It(" should be False for IsTrueFor", func() {
-					Expect(conditions.IsFalseFor(ConditionType("DoesNotExist"))).Should(BeFalse())
-				})
-			})
-
 		})
 
-		Describe("TestConditionsIsUnknownFor", func() {
+		Describe("IsUnknownFor", func() {
 
-			Describe("Testing if False for conditiontype True", func() {
-				It(" should be False for IsUnknownFor", func() {
-					Expect(conditions.IsUnknownFor(ConditionType("True"))).Should(BeFalse())
-				})
+			It(" should be true for Unknown and DoesNotExist", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("True"))).Should(BeFalse())
+				Expect(conditions.IsUnknownFor(ConditionType("False"))).Should(BeFalse())
+				Expect(conditions.IsUnknownFor(ConditionType("Unknown"))).Should(BeTrue())
+				Expect(conditions.IsUnknownFor(ConditionType("DoesNotExist"))).Should(BeTrue())
 			})
-
-			Describe("Testing if True for conditiontype False", func() {
-				It(" should be False for IsUnknownFor", func() {
-					Expect(conditions.IsUnknownFor(ConditionType("False"))).Should(BeFalse())
-				})
-			})
-
-			Describe("Testing if True for conditiontype Unknown", func() {
-				It(" should be True for IsUnknownFor", func() {
-					Expect(conditions.IsUnknownFor(ConditionType("Unknown"))).Should(BeTrue())
-				})
-			})
-
-			Describe("Testing if True for conditiontype DoesNotExist", func() {
-				It(" should be True for IsUnknownFor", func() {
-					Expect(conditions.IsUnknownFor(ConditionType("DoesNotExist"))).Should(BeTrue())
-				})
-			})
-
 		})
-
 	})
 
-	Describe("TestConditionsMarshalUnmarshalJSON", func() {
+	Describe("Unmarshall JSON", func() {
 
 		a := generateCondition("A", corev1.ConditionTrue)
 		b := generateCondition("B", corev1.ConditionTrue)
@@ -263,25 +188,21 @@ var _ = Describe("Conditions", func() {
 				Expect(in[0].Type).To(Equal(a.Type))
 			})
 		})
-
 		Describe("Condition B", func() {
 			It(fmt.Sprintf(" should be equal to %+v", b.Type), func() {
 				Expect(in[1].Type).To(Equal(b.Type))
 			})
 		})
-
 		Describe("Condition C", func() {
 			It(fmt.Sprintf(" should be equal to %+v", c.Type), func() {
 				Expect(in[2].Type).To(Equal(c.Type))
 			})
 		})
-
 		Describe("Condition D", func() {
 			It(fmt.Sprintf(" should be equal to %+v", d.Type), func() {
 				Expect(in[3].Type).To(Equal(d.Type))
 			})
 		})
-
 		// Test that the marshal/unmarshal cycle is lossless.
 		unmarshalConds := Conditions{}
 		err = json.Unmarshal(data, &unmarshalConds)
@@ -294,70 +215,52 @@ var _ = Describe("Conditions", func() {
 				Expect(unmarshalConds).To(Equal(conditions))
 			})
 		})
-
 	})
 
-	Describe("TestConditionsGetNotExists", func() {
+	Describe("Testing Getcondtion for a non existing value", func() {
 
 		conditions := initConditions(generateCondition("A", corev1.ConditionTrue))
 		actualCondition := conditions.GetCondition(ConditionType("B"))
 
-		Describe("Testing Getcondtion for a non existing value", func() {
-			It(" should be empty for getCondition", func() {
-				Expect(actualCondition).Should(BeNil())
-			})
+		It(" should be empty for getCondition", func() {
+			Expect(actualCondition).Should(BeNil())
 		})
-
 	})
 
-	Describe("TestConditionsRemoveFromNilConditions", func() {
+	Describe("Testing if we can remove non present element", func() {
 		var conditions *Conditions
 
-		Describe("Testing if we can remove non present element", func() {
-			It(" should be false for RemoveCondition", func() {
-				Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
-			})
+		It(" should be false for RemoveCondition", func() {
+			Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
 		})
-
 	})
 
-	Describe("TestConditionsRemoveNotExists", func() {
+	Describe("Testing RemoveCondition", func() {
 
-		It(" should be False for Removing C as it does not exist", func() {
-			conditions := initConditions(
+		var conditions Conditions
+
+		BeforeEach(func() {
+			conditions = initConditions(
 				generateCondition("A", corev1.ConditionTrue),
 				generateCondition("B", corev1.ConditionTrue),
 			)
-
-			Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
-
-			Expect(conditions.GetCondition(ConditionType("A"))).ShouldNot(BeNil())
-			Expect(conditions.GetCondition(ConditionType("B"))).ShouldNot(BeNil())
-
-			Expect(len(conditions)).To(Equal(2))
 		})
-
-	})
-
-	Describe("TestConditionsRemoveExists", func() {
 
 		It(" should remove A and not B", func() {
-			conditions := initConditions(
-				generateCondition("A", corev1.ConditionTrue),
-				generateCondition("B", corev1.ConditionTrue),
-			)
-
 			Expect(conditions.RemoveCondition(ConditionType("A"))).Should(BeTrue())
-
 			Expect(conditions.GetCondition(ConditionType("A"))).Should(BeNil())
 			Expect(conditions.GetCondition(ConditionType("B"))).ShouldNot(BeNil())
-
 			Expect(len(conditions)).To(Equal(1))
 		})
-
+		It(" should be False for Removing C as it does not exist", func() {
+			Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
+			Expect(conditions.GetCondition(ConditionType("A"))).ShouldNot(BeNil())
+			Expect(conditions.GetCondition(ConditionType("B"))).ShouldNot(BeNil())
+			Expect(len(conditions)).To(Equal(2))
+		})
 	})
 
-	Describe("TestConditionsSetEmpty", func() {
+	Describe("Testing ConditionsSetEmpty", func() {
 
 		It(" should be equal to the actial one", func() {
 			conditions := initConditions()
@@ -371,7 +274,6 @@ var _ = Describe("Conditions", func() {
 			Expect(len(conditions)).To(Equal(1))
 			Expect(expectedCondition).To(Equal(*actualCondition))
 		})
-
 	})
 
 	Describe("TestConditionsSetNotExists", func() {
@@ -388,7 +290,6 @@ var _ = Describe("Conditions", func() {
 			Expect(len(conditions)).To(Equal(2))
 			Expect(expectedCondition).To(Equal(*actualCondition))
 		})
-
 	})
 
 	Describe("TestConditionsSetExistsIdentical", func() {
@@ -415,7 +316,6 @@ var _ = Describe("Conditions", func() {
 				Expect(expectedCondition).To(Equal(*actualCondition))
 			})
 		})
-
 	})
 
 	Describe("TestConditionsSetExistsDifferentReasonAndStatus", func() {
@@ -441,7 +341,6 @@ var _ = Describe("Conditions", func() {
 			Expect(len(conditions)).To(Equal(1))
 			Expect(expectedCondition).To(Equal(*actualCondition))
 		})
-
 		It(" should exist even with different Status", func() {
 
 			setCondition.Status = corev1.ConditionFalse
@@ -454,11 +353,5 @@ var _ = Describe("Conditions", func() {
 			Expect(expectedCondition).To(Equal(*actualCondition))
 
 		})
-
 	})
-
-	Describe("TestConditionsSetExistsDifferentStatus", func() {
-
-	})
-
 })
