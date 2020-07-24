@@ -2,7 +2,6 @@ package leader
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -56,16 +55,11 @@ var _ = Describe("Leader", func() {
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			nsFile, err := setupNamespace("testns")
-			if err != nil {
-				Fail(err.Error())
-			}
-			defer os.Remove(nsFile.Name())
 			readNamespace = func() ([]byte, error) {
-				return ioutil.ReadFile(nsFile.Name())
+				return []byte("testns"), nil
 			}
 
-			err = Become(context.TODO(), "leader-test", WithClient(client))
+			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -96,19 +90,16 @@ var _ = Describe("Leader", func() {
 	})
 	Describe("getOperatorNamespace", func() {
 		It("should return error when namespace not found", func() {
+			readNamespace = func() ([]byte, error) {
+				return nil, os.ErrNotExist
+			}
 			namespace, err := getOperatorNamespace()
 			Expect(err).To(Equal(ErrNoNamespace))
 			Expect(namespace).To(Equal(""))
 		})
 		It("should return namespace", func() {
-
-			nsFile, err := setupNamespace("testnamespace")
-			if err != nil {
-				Fail(err.Error())
-			}
-			defer os.Remove(nsFile.Name())
 			readNamespace = func() ([]byte, error) {
-				return ioutil.ReadFile(nsFile.Name())
+				return []byte("testnamespace"), nil
 			}
 
 			// test
@@ -117,14 +108,8 @@ var _ = Describe("Leader", func() {
 			Expect(namespace).To(Equal("testnamespace"))
 		})
 		It("should trim whitespace from namespace", func() {
-
-			nsFile, err := setupNamespace("   testnamespace	   ")
-			if err != nil {
-				Fail(err.Error())
-			}
-			defer os.Remove(nsFile.Name())
 			readNamespace = func() ([]byte, error) {
-				return ioutil.ReadFile(nsFile.Name())
+				return []byte("   testnamespace    "), nil
 			}
 
 			// test
@@ -200,14 +185,3 @@ var _ = Describe("Leader", func() {
 		})
 	})
 })
-
-func setupNamespace(ns string) (*os.File, error) {
-	nsFile, err := ioutil.TempFile("/tmp", "operator-ns-test")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := nsFile.Write([]byte(ns)); err != nil {
-		return nil, err
-	}
-	return nsFile, nil
-}
