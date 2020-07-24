@@ -55,7 +55,7 @@ type Config struct {
 	Client crclient.Client
 }
 
-func (c *Config) SetDefaults() error {
+func (c *Config) setDefaults() error {
 	if c.Client == nil {
 		config, err := config.GetConfig()
 		if err != nil {
@@ -96,7 +96,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 		}
 	}
 
-	if err := config.SetDefaults(); err != nil {
+	if err := config.setDefaults(); err != nil {
 		return err
 	}
 
