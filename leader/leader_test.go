@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var _ = Describe("Leader", func() {
+var _ = Describe("Leader election", func() {
 
 	Describe("Become", func() {
 		var (
