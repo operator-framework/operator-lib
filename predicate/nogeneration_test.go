@@ -20,7 +20,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
@@ -32,7 +31,7 @@ var _ = Describe("NoGenerationPredicate", func() {
 
 	It("returns true", func() {
 		By("both the old and new objects having a generation of 0", func() {
-			e = makeEventFor(&corev1.Pod{}, &corev1.Pod{})
+			e = makeUpdateEventFor(&corev1.Pod{}, &corev1.Pod{})
 			Expect(pred.Update(e)).To(BeTrue())
 		})
 	})
@@ -41,7 +40,7 @@ var _ = Describe("NoGenerationPredicate", func() {
 		By("the new object having a non-zero generation", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
 			new.SetGeneration(1)
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		// The old generation will never be lower than the new, so we don't have to test that case.
@@ -49,14 +48,14 @@ var _ = Describe("NoGenerationPredicate", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
 			old.SetGeneration(1)
 			new.SetGeneration(1)
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		By("the old and new objects having unequal non-zero generations", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
 			old.SetGeneration(1)
 			new.SetGeneration(2)
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 	})
@@ -64,34 +63,28 @@ var _ = Describe("NoGenerationPredicate", func() {
 	It("logs a message and returns false", func() {
 		By("the old object being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			e.ObjectOld = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		By("the old metadata being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			e.MetaOld = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		By("the new object being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			e.ObjectNew = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		By("the new metadata being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
-			e = makeEventFor(old, new)
+			e = makeUpdateEventFor(old, new)
 			e.MetaNew = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 	})
 
 })
-
-func makeEventFor(old, new controllerutil.Object) (e event.UpdateEvent) {
-	e.ObjectOld, e.MetaOld = old, old
-	e.ObjectNew, e.MetaNew = new, new
-	return e
-}

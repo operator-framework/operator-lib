@@ -19,9 +19,32 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
 func TestPredicate(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Predicate Suite")
+}
+
+func makeCreateEventFor(obj controllerutil.Object) (e event.CreateEvent) {
+	e.Object, e.Meta = obj, obj
+	return e
+}
+
+func makeUpdateEventFor(old, new controllerutil.Object) (e event.UpdateEvent) {
+	e.ObjectOld, e.MetaOld = old, old
+	e.ObjectNew, e.MetaNew = new, new
+	return e
+}
+
+func makeDeleteEventFor(obj controllerutil.Object) (e event.DeleteEvent) {
+	e.Object, e.Meta = obj, obj
+	return e
+}
+
+func makeGenericEventFor(obj controllerutil.Object) (e event.GenericEvent) {
+	e.Object, e.Meta = obj, obj
+	return e
 }
