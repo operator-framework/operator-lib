@@ -32,9 +32,9 @@ import (
 var log = logf.Log.WithName("event_handler")
 
 const (
-	// NamespacedNameAnnotation is an annotation whose value encodes the name and namespace of a resource to reconcile
-	// when a resource containing this annotation changes. Valid values are of the form `<namespace>/<name>` for
-	// namespace-scoped owners and `<name>` for cluster-scoped owners.
+	// NamespacedNameAnnotation is an annotation whose value encodes the name and namespace of a resource to
+	// reconcile when a resource containing this annotation changes. Valid values are of the form
+	// `<namespace>/<name>` for namespace-scoped owners and `<name>` for cluster-scoped owners.
 	NamespacedNameAnnotation = "operator-sdk/primary-resource"
 	// TypeAnnotation is an annotation whose value encodes the group and kind of a resource to reconcil when a
 	// resource containing this annotation changes. Valid values are of the form `<Kind>` for resource in the
@@ -44,16 +44,19 @@ const (
 
 // EnqueueRequestForAnnotation enqueues Request containing the Name and Namespace specified in the
 // annotations of the object that is the source of the Event. The source of the event triggers reconciliation
-// of the parent resource which is identified by annotations. `NamespacedNameAnnotation` and `TypeAnnotation` together uniquely
-// identify an owner resource to reconcile.
-// handler.EnqueueRequestForAnnotation can be used to trigger reconciliation of resources which are cross-referenced.
-// This allows a namespace-scoped dependent to trigger reconciliation of an owner which is in a different namespace, and
-// a cluster-scoped dependent can trigger the reconciliation of a namespace(scoped)-owner.
-
-// As an example, consider the case where we would like to watch clusterroles based on which we reconcile namespace-scoped replicasets.
-// With native owner references, this would not be possible since the cluster-scoped dependent (clusterroles) is trying to
-// specify a namespace-scoped owner (replicasets). Whereas in case of annotations-based handlers, we could implement the following:
-
+// of the parent resource which is identified by annotations. `NamespacedNameAnnotation` and
+// `TypeAnnotation` together uniquely identify an owner resource to reconcile.
+//
+// handler.EnqueueRequestForAnnotation can be used to trigger reconciliation of resources which are
+// cross-referenced.  This allows a namespace-scoped dependent to trigger reconciliation of an owner which
+// is in a different namespace, and a cluster-scoped dependent can trigger the reconciliation of a
+// namespace(scoped)-owner.
+//
+// As an example, consider the case where we would like to watch clusterroles based on which we reconcile
+// namespace-scoped replicasets. With native owner references, this would not be possible since the
+// cluster-scoped dependent (clusterroles) is trying to specify a namespace-scoped owner (replicasets).
+// Whereas in case of annotations-based handlers, we could implement the following:
+//
 // ...
 // if err := c.Watch(&source.Kind{
 //	  // Watch clusterroles
@@ -66,13 +69,13 @@ const (
 //    }
 // }
 // ...
-
-// With this watch, the ReplicaSet reconciler would receive a request to reconcile "my-namespace/my-replicaset" based
-// on a change to a ClusterRole that has the following annotations:
+//
+// With this watch, the ReplicaSet reconciler would receive a request to reconcile
+// "my-namespace/my-replicaset" based on a change to a ClusterRole that has the following annotations:
 //
 // annotations:
-//   	operator-sdk/primary-resource:"my-namespace/my-replicaset"
-//    	operator-sdk/primary-resource-type:"ReplicaSet.apps"
+//		operator-sdk/primary-resource:"my-namespace/my-replicaset"
+//		operator-sdk/primary-resource-type:"ReplicaSet.apps"
 //
 // Though an annotation-based watch handler removes the boundaries set by native owner reference implementation,
 // the garbage collector still respects the scope restrictions. For example,
@@ -149,10 +152,10 @@ func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 	}
 }
 
-// SetOwnerAnnotations helps in adding 'NamespacedNameAnnotation' and 'TypeAnnotation' to object based on the values
-// obtained from owner. The object gets the annotations from owner's namespace, name, group and kind. In other terms,
-// object can be said to be the dependent having annotations from the owner. When a watch is set on the object, the
-// annotations help to identify the owner and trigger reconciliation.
+// SetOwnerAnnotations helps in adding 'NamespacedNameAnnotation' and 'TypeAnnotation' to object based on
+// the values obtained from owner. The object gets the annotations from owner's namespace, name, group
+// and kind. In other terms, object can be said to be the dependent having annotations from the owner.
+// When a watch is set on the object, the annotations help to identify the owner and trigger reconciliation.
 // Annotations are ALWAYS overwritten.
 func SetOwnerAnnotations(owner, object controllerutil.Object) error {
 	if owner.GetName() == "" {
