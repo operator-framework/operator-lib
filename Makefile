@@ -23,7 +23,14 @@ test: ## Run unit tests
 vet: ## Run go vet
 	@go vet $(addprefix ./, $(SOURCE_DIRS))
 
-check: fmtcheck vet lint build test ## Pre-flight checks before creating PR
+tidy: ## Tidy go dependencies
+	@go mod tidy
+
+check-license: $(SOURCES)
+	@./hack/check-license.sh "$(SOURCES)"
+
+check: tidy fmtcheck vet lint build test check-license ## Pre-flight checks before creating PR
+	@git diff --exit-code
 
 clean: ## Clean up your working environment
 	@rm -f coverage-all.out coverage.out
