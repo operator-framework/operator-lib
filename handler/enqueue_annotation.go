@@ -47,11 +47,10 @@ const (
 // of the parent resource which is identified by annotations. `NamespacedNameAnnotation` and
 // `TypeAnnotation` together uniquely identify an owner resource to reconcile.
 //
-//		handler.EnqueueRequestForAnnotation
-//
-// can be used to trigger reconciliation of resources which are cross-referenced.  This allows a
-// namespace-scoped dependent to trigger reconciliation of an owner which is in a different namespace,
-// and a cluster-scoped dependent can trigger the reconciliation of a namespace(scoped)-owner.
+// handler.EnqueueRequestForAnnotation can be used to trigger reconciliation of resources which are
+// cross-referenced.  This allows a namespace-scoped dependent to trigger reconciliation of an owner
+// which is in a different namespace, and a cluster-scoped dependent can trigger the reconciliation
+// of a namespace(scoped)-owner.
 //
 // As an example, consider the case where we would like to watch clusterroles based on which we reconcile
 // namespace-scoped replicasets. With native owner references, this would not be possible since the
