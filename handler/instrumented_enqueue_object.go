@@ -26,13 +26,15 @@ import (
 
 // InstrumentedEnqueueRequestForObject wraps controller-runtime handler for
 // "EnqueueRequestForObject", and sets up primary resource metrics on event
-// handlers. The main objective of this handler is to set prometheues metrics
-// when create/update/delete events occur. These metrics contain below
+// handlers. The main objective of this handler is to set prometheus metrics
+// when create/update/delete events occur. These metrics contain the following
 // information on resource.
 //
-// resource_created_at_seconds{"name", "namespace", "group", "version", "kind"}
+//		resource_created_at_seconds{"name", "namespace", "group", "version", "kind"}
 //
-// '&handler.InstrumentedEnqueueRequestForObject{}' is used to call the handler.
+// To call the handler use:
+//
+//		&handler.InstrumentedEnqueueRequestForObject{}
 type InstrumentedEnqueueRequestForObject struct {
 	handler.EnqueueRequestForObject
 }
