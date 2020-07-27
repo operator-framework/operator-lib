@@ -47,33 +47,32 @@ const (
 // of the parent resource which is identified by annotations. `NamespacedNameAnnotation` and
 // `TypeAnnotation` together uniquely identify an owner resource to reconcile.
 //
-// handler.EnqueueRequestForAnnotation can be used to trigger reconciliation of resources which are
-// cross-referenced.  This allows a namespace-scoped dependent to trigger reconciliation of an owner which
-// is in a different namespace, and a cluster-scoped dependent can trigger the reconciliation of a
-// namespace(scoped)-owner.
+//		handler.EnqueueRequestForAnnotation
+//
+// can be used to trigger reconciliation of resources which are cross-referenced.  This allows a
+// namespace-scoped dependent to trigger reconciliation of an owner which is in a different namespace,
+// and a cluster-scoped dependent can trigger the reconciliation of a namespace(scoped)-owner.
 //
 // As an example, consider the case where we would like to watch clusterroles based on which we reconcile
 // namespace-scoped replicasets. With native owner references, this would not be possible since the
 // cluster-scoped dependent (clusterroles) is trying to specify a namespace-scoped owner (replicasets).
 // Whereas in case of annotations-based handlers, we could implement the following:
 //
-// ...
-// if err := c.Watch(&source.Kind{
-//	  // Watch clusterroles
-//	  Type: &rbacv1.ClusterRole{}},
+//	if err := c.Watch(&source.Kind{
+//		// Watch clusterroles
+//		Type: &rbacv1.ClusterRole{}},
 //
-//	  // Enqueue ReplicaSet reconcile requests using the namespacedName annotation value in the request.
-//	  &handler.EnqueueRequestForAnnotation{schema.GroupKind{Group:"apps", Kind:"ReplicaSet"}}); err != nil {
-//	      entryLog.Error(err, "unable to watch ClusterRole")
-//	      os.Exit(1)
-//    }
-// }
-// ...
+//		// Enqueue ReplicaSet reconcile requests using the namespacedName annotation value in the request.
+//		&handler.EnqueueRequestForAnnotation{schema.GroupKind{Group:"apps", Kind:"ReplicaSet"}}); err != nil {
+//			entryLog.Error(err, "unable to watch ClusterRole")
+//			os.Exit(1)
+//		}
+//	}
 //
 // With this watch, the ReplicaSet reconciler would receive a request to reconcile
 // "my-namespace/my-replicaset" based on a change to a ClusterRole that has the following annotations:
 //
-// annotations:
+//	annotations:
 //		operator-sdk/primary-resource:"my-namespace/my-replicaset"
 //		operator-sdk/primary-resource-type:"ReplicaSet.apps"
 //
