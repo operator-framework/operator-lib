@@ -20,11 +20,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclock "k8s.io/apimachinery/pkg/util/clock"
 )
+
+func TestStatus(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Status Suite")
+}
 
 var (
 	initTime      time.Time
@@ -69,198 +76,282 @@ func withLastTransitionTime(c Condition, t time.Time) Condition {
 	return c
 }
 
-func TestConditionDeepCopy(t *testing.T) {
-	a := generateCondition("A", corev1.ConditionTrue)
-	var aCopy Condition
-	a.DeepCopyInto(&aCopy)
-	if &a == &aCopy {
-		t.Errorf("Expected and actual point to the same object: %p %#v", &a, &a)
-	}
-	if &a.Status == &aCopy.Status {
-		t.Errorf("Expected and actual point to the same object: %p %#v", &a.Status, &a.Status)
-	}
-	if &a.Reason == &aCopy.Reason {
-		t.Errorf("Expected and actual point to the same object: %p %#v", &a.Reason, &a.Reason)
-	}
-	if &a.Message == &aCopy.Message {
-		t.Errorf("Expected and actual point to the same object: %p %#v", &a.Message, &a.Message)
-	}
-}
+var _ = Describe("Condition", func() {
 
-func TestConditionsSetEmpty(t *testing.T) {
-	conditions := initConditions()
+	Describe("DeepCopyInto", func() {
 
-	setCondition := generateCondition("A", corev1.ConditionTrue)
-	assert.True(t, conditions.SetCondition(setCondition))
+		var aCopy Condition
 
-	expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-	actualCondition := conditions.GetCondition(setCondition.Type)
-	assert.Equal(t, 1, len(conditions))
-	assert.Equal(t, expectedCondition, *actualCondition)
-}
+		a := generateCondition("A", corev1.ConditionTrue)
 
-func TestConditionsSetNotExists(t *testing.T) {
-	conditions := initConditions(generateCondition("B", corev1.ConditionTrue))
+		It("should copy one condition to another in its entirety", func() {
+			a.DeepCopyInto(&aCopy)
+			Expect(aCopy.Type).To(Equal(a.Type))
+			Expect(aCopy.Status).To(Equal(a.Status))
+			Expect(aCopy.Reason).To(Equal(a.Reason))
+			Expect(aCopy.Message).To(Equal(a.Message))
+			Expect(aCopy.LastTransitionTime).To(Equal(a.LastTransitionTime))
+		})
+	})
 
-	setCondition := generateCondition("A", corev1.ConditionTrue)
-	assert.True(t, conditions.SetCondition(setCondition))
+	Describe("Checking for IsTrue, IsFalse and IsUnknown", func() {
 
-	expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-	actualCondition := conditions.GetCondition(expectedCondition.Type)
-	assert.Equal(t, 2, len(conditions))
-	assert.Equal(t, expectedCondition, *actualCondition)
-}
+		var temp Condition
 
-func TestConditionsSetExistsIdentical(t *testing.T) {
-	existingCondition := generateCondition("A", corev1.ConditionTrue)
-	conditions := initConditions(existingCondition)
+		It(" should be True for IsTrue if present", func() {
+			temp = generateCondition("Temp", corev1.ConditionTrue)
+			Expect(temp.IsTrue()).Should(BeTrue())
+		})
+		It(" should be False for IsTrue if not present", func() {
+			temp = generateCondition("Temp", corev1.ConditionFalse)
+			Expect(temp.IsTrue()).Should(BeFalse())
+		})
+		It(" should be True for IsFalse not present", func() {
+			temp = generateCondition("Temp", corev1.ConditionFalse)
+			Expect(temp.IsFalse()).Should(BeTrue())
+		})
+		It(" should be False for IsFalse if present", func() {
+			temp = generateCondition("Temp", corev1.ConditionTrue)
+			Expect(temp.IsFalse()).Should(BeFalse())
+		})
+		It(" should be True for IsUnknown", func() {
+			temp = generateCondition("Temp", corev1.ConditionUnknown)
+			Expect(temp.IsUnknown()).Should(BeTrue())
+		})
+	})
+})
 
-	setCondition := existingCondition
-	assert.False(t, conditions.SetCondition(setCondition))
+var _ = Describe("Conditions", func() {
 
-	expectedCondition := withLastTransitionTime(setCondition, initTime)
-	actualCondition := conditions.GetCondition(expectedCondition.Type)
-	assert.Equal(t, 1, len(conditions))
-	assert.Equal(t, expectedCondition, *actualCondition)
-}
-func TestConditionsSetExistsDifferentReason(t *testing.T) {
-	existingCondition := generateCondition("A", corev1.ConditionTrue)
-	conditions := initConditions(existingCondition)
+	Describe("TestConditions IsTrueFor, IsFalseFor and IsUnknownFor", func() {
 
-	setCondition := existingCondition
-	setCondition.Reason = "ChangedReason"
-	assert.True(t, conditions.SetCondition(setCondition))
+		conditions := NewConditions(
+			generateCondition("False", corev1.ConditionFalse),
+			generateCondition("True", corev1.ConditionTrue),
+			generateCondition("Unknown", corev1.ConditionUnknown),
+		)
 
-	expectedCondition := withLastTransitionTime(setCondition, initTime)
-	actualCondition := conditions.GetCondition(expectedCondition.Type)
-	assert.Equal(t, 1, len(conditions))
-	assert.Equal(t, expectedCondition, *actualCondition)
-}
+		Describe("IsTrueFor", func() {
+			It(" should be true only for True", func() {
+				Expect(conditions.IsTrueFor(ConditionType("True"))).Should(BeTrue())
+				Expect(conditions.IsTrueFor(ConditionType("False"))).Should(BeFalse())
+				Expect(conditions.IsTrueFor(ConditionType("Unknown"))).Should(BeFalse())
+				Expect(conditions.IsTrueFor(ConditionType("DoesNotExist"))).Should(BeFalse())
+			})
+		})
 
-func TestConditionsSetExistsDifferentStatus(t *testing.T) {
-	existingCondition := generateCondition("A", corev1.ConditionTrue)
-	conditions := initConditions(existingCondition)
+		Describe("IsFalseFor", func() {
 
-	setCondition := existingCondition
-	setCondition.Status = corev1.ConditionFalse
-	setCondition.Reason = "ChangedReason"
-	assert.True(t, conditions.SetCondition(setCondition))
+			It(" should be true only for False", func() {
+				Expect(conditions.IsFalseFor(ConditionType("True"))).Should(BeFalse())
+				Expect(conditions.IsFalseFor(ConditionType("False"))).Should(BeTrue())
+				Expect(conditions.IsFalseFor(ConditionType("Unknown"))).Should(BeFalse())
+				Expect(conditions.IsFalseFor(ConditionType("DoesNotExist"))).Should(BeFalse())
+			})
+		})
 
-	expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
-	actualCondition := conditions.GetCondition(expectedCondition.Type)
-	assert.Equal(t, 1, len(conditions))
-	assert.Equal(t, expectedCondition, *actualCondition)
-}
+		Describe("IsUnknownFor", func() {
 
-func TestConditionsGetNotExists(t *testing.T) {
-	conditions := initConditions(generateCondition("A", corev1.ConditionTrue))
+			It(" should be true for Unknown and DoesNotExist", func() {
+				Expect(conditions.IsUnknownFor(ConditionType("True"))).Should(BeFalse())
+				Expect(conditions.IsUnknownFor(ConditionType("False"))).Should(BeFalse())
+				Expect(conditions.IsUnknownFor(ConditionType("Unknown"))).Should(BeTrue())
+				Expect(conditions.IsUnknownFor(ConditionType("DoesNotExist"))).Should(BeTrue())
+			})
+		})
+	})
 
-	actualCondition := conditions.GetCondition(ConditionType("B"))
-	assert.Nil(t, actualCondition)
-}
+	Describe("Unmarshall JSON", func() {
 
-func TestConditionsRemoveFromNilConditions(t *testing.T) {
-	var conditions *Conditions
-	assert.False(t, conditions.RemoveCondition(ConditionType("C")))
-}
+		a := generateCondition("A", corev1.ConditionTrue)
+		b := generateCondition("B", corev1.ConditionTrue)
+		c := generateCondition("C", corev1.ConditionTrue)
+		d := generateCondition("D", corev1.ConditionTrue)
 
-func TestConditionsRemoveNotExists(t *testing.T) {
-	conditions := initConditions(
-		generateCondition("A", corev1.ConditionTrue),
-		generateCondition("B", corev1.ConditionTrue),
-	)
+		// Insert conditions unsorted
+		conditions := initConditions(b, d, c, a)
 
-	assert.False(t, conditions.RemoveCondition(ConditionType("C")))
-	a := conditions.GetCondition(ConditionType("A"))
-	b := conditions.GetCondition(ConditionType("B"))
-	assert.NotNil(t, a)
-	assert.NotNil(t, b)
-	assert.Equal(t, 2, len(conditions))
-}
+		data, err := json.Marshal(conditions)
+		if err != nil {
+			Fail(fmt.Sprintf("Failed to marshal JSON: %s", err))
+		}
 
-func TestConditionsRemoveExists(t *testing.T) {
-	conditions := initConditions(
-		generateCondition("A", corev1.ConditionTrue),
-		generateCondition("B", corev1.ConditionTrue),
-	)
+		// Test that conditions are in sorted order by type.
+		in := []Condition{}
+		err = json.Unmarshal(data, &in)
+		if err != nil {
+			Fail(fmt.Sprintf("Failed to unmarshal JSON: %s", err))
+		}
 
-	assert.True(t, conditions.RemoveCondition(ConditionType("A")))
-	a := conditions.GetCondition(ConditionType("A"))
-	b := conditions.GetCondition(ConditionType("B"))
-	assert.Nil(t, a)
-	assert.NotNil(t, b)
-	assert.Equal(t, 1, len(conditions))
-}
+		Describe("Condition A", func() {
+			It(fmt.Sprintf(" should be equal to %+v", a.Type), func() {
+				Expect(in[0].Type).To(Equal(a.Type))
+			})
+		})
+		Describe("Condition B", func() {
+			It(fmt.Sprintf(" should be equal to %+v", b.Type), func() {
+				Expect(in[1].Type).To(Equal(b.Type))
+			})
+		})
+		Describe("Condition C", func() {
+			It(fmt.Sprintf(" should be equal to %+v", c.Type), func() {
+				Expect(in[2].Type).To(Equal(c.Type))
+			})
+		})
+		Describe("Condition D", func() {
+			It(fmt.Sprintf(" should be equal to %+v", d.Type), func() {
+				Expect(in[3].Type).To(Equal(d.Type))
+			})
+		})
+		// Test that the marshal/unmarshal cycle is lossless.
+		unmarshalConds := Conditions{}
+		err = json.Unmarshal(data, &unmarshalConds)
+		if err != nil {
+			Fail(fmt.Sprintf("Failed to unmarshal JSON: %s", err))
+		}
 
-func TestConditionsIsTrueFor(t *testing.T) {
-	conditions := NewConditions(
-		generateCondition("False", corev1.ConditionFalse),
-		generateCondition("True", corev1.ConditionTrue),
-		generateCondition("Unknown", corev1.ConditionUnknown),
-	)
+		Describe("Unmarshalled conditions", func() {
+			It(" should equal original conditions", func() {
+				Expect(unmarshalConds).To(Equal(conditions))
+			})
+		})
+	})
 
-	assert.True(t, conditions.IsTrueFor(ConditionType("True")))
-	assert.False(t, conditions.IsTrueFor(ConditionType("False")))
-	assert.False(t, conditions.IsTrueFor(ConditionType("Unknown")))
-	assert.False(t, conditions.IsTrueFor(ConditionType("DoesNotExist")))
-}
+	Describe("Testing Getcondtion for a non existing value", func() {
 
-func TestConditionsIsFalseFor(t *testing.T) {
-	conditions := NewConditions(
-		generateCondition("False", corev1.ConditionFalse),
-		generateCondition("True", corev1.ConditionTrue),
-		generateCondition("Unknown", corev1.ConditionUnknown),
-	)
+		conditions := initConditions(generateCondition("A", corev1.ConditionTrue))
+		actualCondition := conditions.GetCondition(ConditionType("B"))
 
-	assert.False(t, conditions.IsFalseFor(ConditionType("True")))
-	assert.True(t, conditions.IsFalseFor(ConditionType("False")))
-	assert.False(t, conditions.IsFalseFor(ConditionType("Unknown")))
-	assert.False(t, conditions.IsFalseFor(ConditionType("DoesNotExist")))
-}
+		It(" should be empty for getCondition", func() {
+			Expect(actualCondition).Should(BeNil())
+		})
+	})
 
-func TestConditionsIsUnknownFor(t *testing.T) {
-	conditions := NewConditions(
-		generateCondition("False", corev1.ConditionFalse),
-		generateCondition("True", corev1.ConditionTrue),
-		generateCondition("Unknown", corev1.ConditionUnknown),
-	)
+	Describe("Testing if we can remove non present element", func() {
+		var conditions *Conditions
 
-	assert.False(t, conditions.IsUnknownFor(ConditionType("True")))
-	assert.False(t, conditions.IsUnknownFor(ConditionType("False")))
-	assert.True(t, conditions.IsUnknownFor(ConditionType("Unknown")))
-	assert.True(t, conditions.IsUnknownFor(ConditionType("DoesNotExist")))
-}
+		It(" should be false for RemoveCondition", func() {
+			Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
+		})
+	})
 
-func TestConditionsMarshalUnmarshalJSON(t *testing.T) {
-	a := generateCondition("A", corev1.ConditionTrue)
-	b := generateCondition("B", corev1.ConditionTrue)
-	c := generateCondition("C", corev1.ConditionTrue)
-	d := generateCondition("D", corev1.ConditionTrue)
+	Describe("Testing RemoveCondition", func() {
 
-	// Insert conditions unsorted
-	conditions := initConditions(b, d, c, a)
+		var conditions Conditions
 
-	data, err := json.Marshal(conditions)
-	if err != nil {
-		t.Fatalf("Failed to marshal JSON: %s", err)
-	}
+		BeforeEach(func() {
+			conditions = initConditions(
+				generateCondition("A", corev1.ConditionTrue),
+				generateCondition("B", corev1.ConditionTrue),
+			)
+		})
 
-	// Test that conditions are in sorted order by type.
-	in := []Condition{}
-	err = json.Unmarshal(data, &in)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal JSON: %s", err)
-	}
-	assert.Equal(t, a.Type, in[0].Type)
-	assert.Equal(t, b.Type, in[1].Type)
-	assert.Equal(t, c.Type, in[2].Type)
-	assert.Equal(t, d.Type, in[3].Type)
+		It(" should remove A and not B", func() {
+			Expect(conditions.RemoveCondition(ConditionType("A"))).Should(BeTrue())
+			Expect(conditions.GetCondition(ConditionType("A"))).Should(BeNil())
+			Expect(conditions.GetCondition(ConditionType("B"))).ShouldNot(BeNil())
+			Expect(len(conditions)).To(Equal(1))
+		})
+		It(" should be False for Removing C as it does not exist", func() {
+			Expect(conditions.RemoveCondition(ConditionType("C"))).Should(BeFalse())
+			Expect(conditions.GetCondition(ConditionType("A"))).ShouldNot(BeNil())
+			Expect(conditions.GetCondition(ConditionType("B"))).ShouldNot(BeNil())
+			Expect(len(conditions)).To(Equal(2))
+		})
+	})
 
-	// Test that the marshal/unmarshal cycle is lossless.
-	unmarshalConds := Conditions{}
-	err = json.Unmarshal(data, &unmarshalConds)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal JSON: %s", err)
-	}
-	assert.Equal(t, conditions, unmarshalConds)
-}
+	Describe("Testing ConditionsSetEmpty", func() {
+
+		It(" should be equal to the actial one", func() {
+			conditions := initConditions()
+			setCondition := generateCondition("A", corev1.ConditionTrue)
+
+			Expect(conditions.SetCondition(setCondition)).Should(BeTrue())
+
+			expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+			actualCondition := conditions.GetCondition(setCondition.Type)
+
+			Expect(len(conditions)).To(Equal(1))
+			Expect(expectedCondition).To(Equal(*actualCondition))
+		})
+	})
+
+	Describe("TestConditionsSetNotExists", func() {
+
+		It(" should be equal to the axtial one", func() {
+			conditions := initConditions(generateCondition("B", corev1.ConditionTrue))
+			setCondition := generateCondition("A", corev1.ConditionTrue)
+
+			Expect(conditions.SetCondition(setCondition)).Should(BeTrue())
+
+			expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+			actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+			Expect(len(conditions)).To(Equal(2))
+			Expect(expectedCondition).To(Equal(*actualCondition))
+		})
+	})
+
+	Describe("TestConditionsSetExistsIdentical", func() {
+
+		existingCondition := generateCondition("A", corev1.ConditionTrue)
+		conditions := initConditions(existingCondition)
+		setCondition := existingCondition
+
+		temp := conditions.SetCondition(setCondition)
+		Describe("Before adding the transition time", func() {
+			It(" should be false for setCondition", func() {
+				Expect(temp).Should(BeFalse())
+			})
+		})
+
+		expectedCondition := withLastTransitionTime(setCondition, initTime)
+		actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+		Describe("After adding the transition time", func() {
+			It(" length of conditions should be equal to 1", func() {
+				Expect(len(conditions)).To(Equal(1))
+			})
+			It(fmt.Sprintf(" Expected condition should be %+v", expectedCondition), func() {
+				Expect(expectedCondition).To(Equal(*actualCondition))
+			})
+		})
+	})
+
+	Describe("TestConditionsSetExistsDifferentReasonAndStatus", func() {
+		var (
+			conditions   Conditions
+			setCondition Condition
+		)
+
+		BeforeEach(func() {
+			existingCondition := generateCondition("A", corev1.ConditionTrue)
+			conditions = initConditions(existingCondition)
+			setCondition = existingCondition
+			setCondition.Reason = "ChangedReason"
+		})
+
+		It(" should exist even with different Reason", func() {
+
+			Expect(conditions.SetCondition(setCondition)).Should(BeTrue())
+
+			expectedCondition := withLastTransitionTime(setCondition, initTime)
+			actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+			Expect(len(conditions)).To(Equal(1))
+			Expect(expectedCondition).To(Equal(*actualCondition))
+		})
+		It(" should exist even with different Status", func() {
+
+			setCondition.Status = corev1.ConditionFalse
+			Expect(conditions.SetCondition(setCondition)).Should(BeTrue())
+
+			expectedCondition := withLastTransitionTime(setCondition, initTime.Add(clockInterval))
+			actualCondition := conditions.GetCondition(expectedCondition.Type)
+
+			Expect(len(conditions)).To(Equal(1))
+			Expect(expectedCondition).To(Equal(*actualCondition))
+
+		})
+	})
+})
