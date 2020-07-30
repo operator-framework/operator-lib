@@ -80,30 +80,67 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	})
 
 	Describe("Delete", func() {
-		It("should enqueue a request & remove the metric on a DeleteEvent", func() {
-			evt := event.DeleteEvent{
-				Object: pod,
-				Meta:   pod.GetObjectMeta(),
-			}
+		Context("when a gauge already exists", func() {
+			BeforeEach(func() {
+				evt := event.CreateEvent{
+					Object: pod,
+					Meta:   pod.GetObjectMeta(),
+				}
+				instance.Create(evt, q)
+				Expect(q.Len()).To(Equal(1))
+			})
+			It("should enqueue a request & remove the metric on a DeleteEvent", func() {
+				evt := event.DeleteEvent{
+					Object: pod,
+					Meta:   pod.GetObjectMeta(),
+				}
 
-			// test the delete
-			instance.Delete(evt, q)
+				// test the delete
+				instance.Delete(evt, q)
 
-			// verify workqueue
-			Expect(q.Len()).To(Equal(1))
-			i, _ := q.Get()
-			Expect(i).To(Equal(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: pod.Namespace,
-					Name:      pod.Name,
-				},
-			}))
+				// verify workqueue
+				Expect(q.Len()).To(Equal(1))
+				i, _ := q.Get()
+				Expect(i).To(Equal(reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: pod.Namespace,
+						Name:      pod.Name,
+					},
+				}))
 
-			// verify metrics
-			gauges, err := metrics.Registry.Gather()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(gauges)).To(Equal(0))
+				// verify metrics
+				gauges, err := metrics.Registry.Gather()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(gauges)).To(Equal(0))
+			})
 		})
+		Context("when a gauge does not exist", func() {
+			It("should enqueue a request & there should be no new metric on a DeleteEvent", func() {
+				evt := event.DeleteEvent{
+					Object: pod,
+					Meta:   pod.GetObjectMeta(),
+				}
+
+				// test the delete
+				instance.Delete(evt, q)
+
+				// verify workqueue
+				Expect(q.Len()).To(Equal(1))
+				i, _ := q.Get()
+				Expect(i).To(Equal(reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: pod.Namespace,
+						Name:      pod.Name,
+					},
+				}))
+
+				// verify metrics
+				gauges, err := metrics.Registry.Gather()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(gauges)).To(Equal(0))
+			})
+		})
+
 	})
 
 	Describe("Update", func() {
