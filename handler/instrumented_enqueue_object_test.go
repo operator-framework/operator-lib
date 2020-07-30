@@ -15,8 +15,11 @@
 package handler
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	dto "github.com/prometheus/client_model/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,9 +40,14 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 		q = controllertest.Queue{Interface: workqueue.New()}
 		instance = InstrumentedEnqueueRequestForObject{}
 		pod = &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "biz",
-				Name:      "biz",
+				Namespace:         "biznamespace",
+				Name:              "bizname",
+				CreationTimestamp: metav1.Time{time.Now()},
 			},
 		}
 	})
@@ -50,7 +58,10 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				Meta:   pod.GetObjectMeta(),
 			}
 
+			// test the create
 			instance.Create(evt, q)
+
+			// verify workqueue
 			Expect(q.Len()).To(Equal(1))
 			i, _ := q.Get()
 			Expect(i).To(Equal(reconcile.Request{
@@ -60,14 +71,11 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				},
 			}))
 
+			// verify metrics
 			gauges, err := metrics.Registry.Gather()
-			Expect(err).Should(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			Expect(len(gauges)).To(Equal(1))
-			for _, l := range gauges[0].Metric[0].Label {
-				if l.Name == ptrString("name") || l.Name == ptrString("namespace") {
-					Expect(l.Value).To(Equal("biz"))
-				}
-			}
+			assertMetrics(gauges[0], 1, []*corev1.Pod{pod})
 		})
 	})
 
@@ -78,7 +86,10 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				Meta:   pod.GetObjectMeta(),
 			}
 
+			// test the delete
 			instance.Delete(evt, q)
+
+			// verify workqueue
 			Expect(q.Len()).To(Equal(1))
 			i, _ := q.Get()
 			Expect(i).To(Equal(reconcile.Request{
@@ -88,8 +99,9 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				},
 			}))
 
+			// verify metrics
 			gauges, err := metrics.Registry.Gather()
-			Expect(err).Should(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			Expect(len(gauges)).To(Equal(0))
 		})
 	})
@@ -98,8 +110,8 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 		It("should enqueue a request in case of UpdateEvent", func() {
 			newpod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "baz",
-					Name:      "baz",
+					Namespace: "baznamespace",
+					Name:      "bazname",
 				},
 			}
 			evt := event.UpdateEvent{
@@ -109,7 +121,10 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				MetaNew:   newpod.GetObjectMeta(),
 			}
 
+			// test the update
 			instance.Update(evt, q)
+
+			// verify workqueue
 			Expect(q.Len()).To(Equal(2))
 			i, _ := q.Get()
 			Expect(i).To(Equal(reconcile.Request{
@@ -118,15 +133,19 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 					Name:      pod.Name,
 				},
 			}))
+			i, _ = q.Get()
+			Expect(i).To(Equal(reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: newpod.Namespace,
+					Name:      newpod.Name,
+				},
+			}))
 
+			// verify metrics
 			gauges, err := metrics.Registry.Gather()
-			Expect(err).Should(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			Expect(len(gauges)).To(Equal(1))
-			for _, l := range gauges[0].Metric[0].Label {
-				if l.Name == ptrString("name") || l.Name == ptrString("namespace") {
-					Expect(l.Value).To(Equal("biz"))
-				}
-			}
+			assertMetrics(gauges[0], 2, []*corev1.Pod{newpod, pod})
 		})
 	})
 
@@ -144,6 +163,31 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	})
 })
 
-func ptrString(s string) *string {
-	return &s
+func assertMetrics(gauge *dto.MetricFamily, count int, pods []*corev1.Pod) {
+	// need variables to compare the pointers
+	name := "name"
+	namespace := "namespace"
+	g := "group"
+	v := "version"
+	k := "kind"
+
+	Expect(len(gauge.Metric)).To(Equal(count))
+	for i := 0; i < count; i++ {
+		Expect(*gauge.Metric[i].Gauge.Value).To(Equal(float64(pods[i].GetObjectMeta().GetCreationTimestamp().UTC().Unix())))
+
+		for _, l := range gauge.Metric[i].Label {
+			switch l.Name {
+			case &name:
+				Expect(l.Value).To(Equal(pods[i].GetObjectMeta().GetName()))
+			case &namespace:
+				Expect(l.Value).To(Equal(pods[i].GetObjectMeta().GetNamespace()))
+			case &g:
+				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Group))
+			case &v:
+				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Version))
+			case &k:
+				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Kind))
+			}
+		}
+	}
 }
