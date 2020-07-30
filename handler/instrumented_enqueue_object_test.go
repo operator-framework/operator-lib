@@ -15,8 +15,6 @@
 package handler
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	dto "github.com/prometheus/client_model/go"
@@ -47,7 +45,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:         "biznamespace",
 				Name:              "bizname",
-				CreationTimestamp: metav1.Time{time.Now()},
+				CreationTimestamp: metav1.Now(),
 			},
 		}
 	})
