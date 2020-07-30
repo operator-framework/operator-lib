@@ -6,6 +6,7 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.5.1
 	k8s.io/api v0.18.4
 	k8s.io/apimachinery v0.18.4
