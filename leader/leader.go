@@ -49,8 +49,10 @@ var log = logf.Log.WithName("leader")
 // attempts to become the leader.
 const maxBackoffInterval = time.Second * 16
 
+// Option are the arguments for creating a new Become leader
 type Option func(*Config) error
 
+// Config configures the Become leader
 type Config struct {
 	Client crclient.Client
 }
@@ -71,6 +73,7 @@ func (c *Config) setDefaults() error {
 	return nil
 }
 
+// WithClient allows use the Become leader with the WithClient an Client informed
 func WithClient(cl crclient.Client) Option {
 	return func(c *Config) error {
 		c.Client = cl
