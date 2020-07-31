@@ -18,7 +18,7 @@ fmtcheck: ## Check go formatting
 	@gofmt -l $(SOURCES) | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi
 
 test: ## Run unit tests
-	@go test -race -covermode atomic -coverprofile cover.out $(addprefix ./, $(addsuffix /... , $(SOURCE_DIRS)))
+	@go test -race -covermode atomic -tags integration -coverprofile cover.out $(addprefix ./, $(addsuffix /... , $(SOURCE_DIRS)))
 
 vet: ## Run go vet
 	@go vet $(addprefix ./, $(SOURCE_DIRS))
