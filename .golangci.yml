@@ -19,6 +19,9 @@ linters:
     - unused
     - govet
     - typecheck
+    - gocyclo
+    - gofmt
+    - dupl
 
 run:
   deadline: 5m
