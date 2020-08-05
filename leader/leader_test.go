@@ -209,4 +209,137 @@ var _ = Describe("Leader election", func() {
 			Expect(pod.TypeMeta.Kind).To(Equal("Pod"))
 		})
 	})
+
+	Describe("getNode", func() {
+		var (
+			client crclient.Client
+		)
+		BeforeEach(func() {
+			client = fake.NewFakeClient(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mynode",
+					},
+				},
+			)
+		})
+		It("should return an error if no node is found", func() {
+			node := corev1.Node{}
+			err := getNode(context.TODO(), client, "", &node)
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return the node with the given name", func() {
+			node := corev1.Node{}
+			err := getNode(context.TODO(), client, "mynode", &node)
+			Expect(err).Should(BeNil())
+			Expect(node.TypeMeta.APIVersion).To(Equal("v1"))
+			Expect(node.TypeMeta.Kind).To(Equal("Node"))
+		})
+	})
+
+	Describe("isNotReadyNode", func() {
+		var (
+			nodeName string
+			node     *corev1.Node
+			client   crclient.Client
+		)
+		BeforeEach(func() {
+			nodeName = "mynode"
+			node = &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Status: corev1.NodeStatus{
+					Conditions: make([]corev1.NodeCondition, 1),
+				},
+			}
+		})
+		It("should return false if no NodeCondition is found", func() {
+			client = fake.NewFakeClient(node)
+			ret := isNotReadyNode(context.TODO(), client, nodeName)
+			Expect(ret).To(Equal(false))
+		})
+		It("should return false if type is incorrect", func() {
+			node.Status.Conditions[0].Type = corev1.NodeMemoryPressure
+			node.Status.Conditions[0].Status = corev1.ConditionFalse
+			client = fake.NewFakeClient(node)
+			ret := isNotReadyNode(context.TODO(), client, nodeName)
+			Expect(ret).To(Equal(false))
+		})
+		It("should return false if NodeReady's type is true", func() {
+			node.Status.Conditions[0].Type = corev1.NodeReady
+			node.Status.Conditions[0].Status = corev1.ConditionTrue
+			client = fake.NewFakeClient(node)
+			ret := isNotReadyNode(context.TODO(), client, nodeName)
+			Expect(ret).To(Equal(false))
+		})
+		It("should return true when Type is set and Status is set to false", func() {
+			node.Status.Conditions[0].Type = corev1.NodeReady
+			node.Status.Conditions[0].Status = corev1.ConditionFalse
+			client = fake.NewFakeClient(node)
+			ret := isNotReadyNode(context.TODO(), client, nodeName)
+			Expect(ret).To(Equal(true))
+		})
+	})
+	Describe("deleteLeader", func() {
+		var (
+			configmap *corev1.ConfigMap
+			pod       *corev1.Pod
+			client    crclient.Client
+		)
+		BeforeEach(func() {
+			pod = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "leader-test",
+					Namespace: "testns",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "v1",
+							Kind:       "Pod",
+							Name:       "leader-test",
+						},
+					},
+				},
+			}
+			configmap = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "leader-test",
+					Namespace: "testns",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "v1",
+							Kind:       "Pod",
+							Name:       "leader-test",
+						},
+					},
+				},
+			}
+		})
+		It("should return an error if existing is not found", func() {
+			client = fake.NewFakeClient(pod)
+			err := deleteLeader(context.TODO(), client, pod, configmap)
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return an error if pod is not found", func() {
+			client = fake.NewFakeClient(configmap)
+			err := deleteLeader(context.TODO(), client, pod, configmap)
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return an error if pod is nil", func() {
+			client = fake.NewFakeClient(pod, configmap)
+			err := deleteLeader(context.TODO(), client, nil, configmap)
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return an error if configmap is nil", func() {
+			client = fake.NewFakeClient(pod, configmap)
+			err := deleteLeader(context.TODO(), client, pod, nil)
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return nil if pod and configmap exists and configmap's owner is the pod", func() {
+			client = fake.NewFakeClient(pod, configmap)
+			err := deleteLeader(context.TODO(), client, pod, configmap)
+			Expect(err).Should(BeNil())
+		})
+
+	})
 })
