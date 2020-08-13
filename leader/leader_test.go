@@ -17,21 +17,29 @@ package leader
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/testing"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/operator-framework/operator-lib/test"
 )
 
 var _ = Describe("Leader election", func() {
 
 	Describe("Become", func() {
 		var (
-			client crclient.Client
+			client  crclient.Client
+			reactor test.ReactorClient
 		)
 		BeforeEach(func() {
 			client = fake.NewFakeClient(
@@ -61,14 +69,30 @@ var _ = Describe("Leader election", func() {
 						},
 					},
 				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pod-no-configmap",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "pod-no-configmap",
+							},
+						},
+					},
+				},
 			)
+			reactor = test.NewReactorClient(client)
 		})
-		It("should return an error when POD_NAME is not set", func() {
-			os.Unsetenv("POD_NAME")
-			err := Become(context.TODO(), "leader-test")
+		It("should return an error when Option returns an error", func() {
+			err := Become(context.TODO(), "leader-test", func(c *Config) error {
+				return fmt.Errorf("expected error")
+			})
 			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(Equal("expected error"))
 		})
-		It("should return an ErrNoNamespace", func() {
+		It("should return ErrNoNamespace when namespace is not found", func() {
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
 				return "", ErrNoNamespace
@@ -78,7 +102,18 @@ var _ = Describe("Leader election", func() {
 			Expect(err).To(Equal(ErrNoNamespace))
 			Expect(errors.Is(err, ErrNoNamespace)).To(Equal(true))
 		})
-		It("should not return an error", func() {
+		It("should return an error when POD_NAME is not set", func() {
+			os.Unsetenv("POD_NAME")
+			// ensure namespace is found
+			readNamespace = func() ([]byte, error) {
+				return []byte("testns"), nil
+			}
+			err := Become(context.TODO(), "leader-test", WithClient(client))
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(Equal(
+				"required env POD_NAME not set, please configure downward API"))
+		})
+		It("should return nil when configmap exists with matching owner ref", func() {
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
 				return "testns", nil
@@ -86,6 +121,131 @@ var _ = Describe("Leader election", func() {
 
 			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).Should(BeNil())
+		})
+		It("should return an error retrieving ConfigMap returns an error", func() {
+			os.Setenv("POD_NAME", "leader-test")
+			readNamespace = func() ([]byte, error) {
+				return []byte("testns"), nil
+			}
+			reactor.PrependReactor("get", "configmaps",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					return true, &corev1.ConfigMap{}, fmt.Errorf("random error")
+				})
+			err := Become(context.TODO(), "leader-test", WithClient(reactor))
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(Equal("random error"))
+		})
+		Context("when there is no existing lock ConfigMap", func() {
+			It("should create a new configmap with ownerref", func() {
+				os.Setenv("POD_NAME", "pod-no-configmap")
+				readNamespace = func() ([]byte, error) {
+					return []byte("testns"), nil
+				}
+
+				err := Become(context.TODO(), "pod-no-configmap", WithClient(client))
+				Expect(err).Should(BeNil())
+
+				cm := &corev1.ConfigMap{}
+				key := crclient.ObjectKey{Namespace: "testns", Name: "pod-no-configmap"}
+				err = client.Get(context.TODO(), key, cm)
+				Expect(err).Should(BeNil())
+				Expect(len(cm.GetOwnerReferences())).To(Equal(1))
+				Expect(cm.GetOwnerReferences()[0].Kind).To(Equal("Pod"))
+			})
+			It("should return the error if configmap creation fails", func() {
+				os.Setenv("POD_NAME", "pod-no-configmap")
+				readNamespace = func() ([]byte, error) {
+					return []byte("testns"), nil
+				}
+				reactor.PrependReactor("create", "configmaps",
+					func(action testing.Action) (bool, runtime.Object, error) {
+						return true, &corev1.ConfigMap{}, fmt.Errorf("random error")
+					})
+				err := Become(context.TODO(), "pod-no-configmap", WithClient(reactor))
+				Expect(err).ShouldNot(BeNil())
+				Expect(err.Error()).To(Equal("random error"))
+			})
+			Context("but a configmap was created underneath us", func() {
+				It("ultimately become leader", func() {
+				})
+			})
+		})
+		It("should return Unknown error trying to create ConfigMap lock", func() {
+			os.Setenv("POD_NAME", "leader-test")
+			readNamespace = func() ([]byte, error) {
+				return []byte("testns"), nil
+			}
+			reactor.PrependReactor("get", "configmaps",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					return true, &corev1.ConfigMap{}, apierrors.NewNotFound(
+						schema.GroupResource{Group: "", Resource: "configmaps"},
+						"reactor")
+				})
+			reactor.PrependReactor("create", "configmaps",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					return true, &corev1.ConfigMap{}, fmt.Errorf("random error")
+				})
+			err := Become(context.TODO(), "leader-test", WithClient(reactor))
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(Equal("random error"))
+		})
+		It("should handle when ConfigMap already exists and become leader", func() {
+			Skip("needs a little more work with reactor client")
+			os.Setenv("POD_NAME", "leader-test")
+			readNamespace = func() ([]byte, error) {
+				return []byte("testns"), nil
+			}
+
+			getcount := 1
+			createcount := 1
+			reactor.PrependReactor("get", "configmaps",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					getcount--
+					if getcount < 0 {
+						cm := &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "leader-test",
+								Namespace: "testns",
+								OwnerReferences: []metav1.OwnerReference{
+									{
+										APIVersion: "v1",
+										Kind:       "Pod",
+										Name:       "leader-test",
+									},
+								},
+							},
+						}
+						return true, cm, nil
+					}
+					return true, &corev1.ConfigMap{}, apierrors.NewNotFound(
+						schema.GroupResource{Group: "", Resource: "configmaps"},
+						"reactor")
+				})
+			reactor.PrependReactor("create", "configmaps",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					createcount--
+					if createcount < 0 {
+						cm := &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "leader-test",
+								Namespace: "testns",
+								OwnerReferences: []metav1.OwnerReference{
+									{
+										APIVersion: "v1",
+										Kind:       "Pod",
+										Name:       "leader-test",
+									},
+								},
+							},
+						}
+						return true, cm, nil
+					}
+					return true, &corev1.ConfigMap{}, apierrors.NewAlreadyExists(
+						schema.GroupResource{Group: "", Resource: "configmaps"},
+						"reactor")
+				})
+			err := Become(context.TODO(), "leader-test", WithClient(reactor))
+			Expect(err).ShouldNot(BeNil())
 		})
 	})
 	Describe("isPodEvicted", func() {
