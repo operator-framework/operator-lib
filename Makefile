@@ -8,8 +8,11 @@ SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -pa
 build: $(SOURCES) ## Build Test
 	go build -i -ldflags="-s -w" ./...
 
-lint: golangci-lint ## Run golint
+lint: golangci-lint ## Run golangci-lint
 	@$(GOLANGCI_LINT) run
+
+lint-fix: golangci-lint ## Run golangci lint to automatically perform fixes
+	@$(GOLANGCI_LINT) run --fix
 
 fmt: ## Run go fmt
 	@gofmt -d $(SOURCES)
@@ -39,7 +42,7 @@ golangci-lint:
 ifeq (, $(shell which golangci-lint))
 	@{ \
 	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.27.0 ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.29.0 ;\
 	}
 GOLANGCI_LINT=$(shell go env GOPATH)/bin/golangci-lint
 else
