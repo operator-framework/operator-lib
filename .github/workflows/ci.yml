@@ -47,9 +47,12 @@ jobs:
     - name: Test
       run: make test
 
-    - uses: shogo82148/actions-goveralls@v1
-      with:
-        path-to-profile: cover.out
+    - name: Send coverage
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GO111MODULE=off go get github.com/mattn/goveralls
+          $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github
 
   # deploy:
   #   name: Deploy
