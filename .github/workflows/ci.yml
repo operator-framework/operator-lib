@@ -57,20 +57,10 @@ jobs:
           go-version: 1.13.x
       - name: Checkout code
         uses: actions/checkout@v1
-      - name: Calc coverage
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go test -v -covermode=count -coverprofile=coverage.out
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1.0.0
-        with:
-          infile: coverage.out
-          outfile: coverage.lcov
       - name: Coveralls
-        uses: coverallsapp/github-action@v1.0.1
-        with:
-          github-token: ${{ secrets.github_token }}
-          path-to-lcov: coverage.lcov
+          uses: coverallsapp/github-action@master
+          with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # deploy:
   #   name: Deploy
