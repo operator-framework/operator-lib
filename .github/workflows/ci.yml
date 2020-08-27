@@ -44,31 +44,16 @@ jobs:
       with:
         path-to-profile: cover.out
 
-  # deploy:
-  #   name: Deploy
-  #   needs: test
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #
-  #   - name: Check out code into the Go module directory
-  #     uses: actions/checkout@v2
-  #
-  #   - name: Push helm-operator image to Quay
-  #     uses: docker/build-push-action@v1
-  #     with:
-  #       username: ${{ secrets.QUAY_USERNAME }}
-  #       password: ${{ secrets.QUAY_PASSWORD }}
-  #       registry: quay.io
-  #       repository: joelanford/helm-operator
-  #       tags: main
-  #
-  #   - name: Push example nginx-operator image to Quay
-  #     uses: docker/build-push-action@v1
-  #     with:
-  #       path: example/
-  #       username: ${{ secrets.QUAY_USERNAME }}
-  #       password: ${{ secrets.QUAY_PASSWORD }}
-  #       registry: quay.io
-  #       repository: joelanford/nginx-operator
-  #       tags: latest
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v1
+      with:
+        version: v1.29
+        args: --timeout 5m
