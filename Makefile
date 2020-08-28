@@ -1,9 +1,5 @@
-SOURCE_DIRS      = handler leader predicate status
 SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -path "*/.git/*")
 .DEFAULT_GOAL    := build
-
-# ensure: ## Install or update project dependencies
-#     @dep ensure
 
 build: $(SOURCES) ## Build Test
 	go build -i -ldflags="-s -w" ./...
@@ -15,38 +11,37 @@ lint-fix: golangci-lint ## Run golangci lint to automatically perform fixes
 	@$(GOLANGCI_LINT) run --fix
 
 fmt: ## Run go fmt
-	@gofmt -d $(SOURCES)
+	@go fmt ./...
 
 fmtcheck: ## Check go formatting
 	@gofmt -l $(SOURCES) | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi
 
 test: ## Run unit tests
-	@go test -race -covermode atomic -coverprofile cover.out $(addprefix ./, $(addsuffix /... , $(SOURCE_DIRS)))
+	@go test -race -covermode atomic -coverprofile cover.out ./...
 
 vet: ## Run go vet
-	@go vet $(addprefix ./, $(SOURCE_DIRS))
+	@go vet ./...
 
 tidy: ## Tidy go dependencies
 	@go mod tidy
 
-check-license: $(SOURCES)
+check-license: $(SOURCES) ## Check license headers
 	@./hack/check-license.sh "$(SOURCES)"
 
 check: tidy fmtcheck vet lint build test check-license ## Pre-flight checks before creating PR
 	@git diff --exit-code
 
 clean: ## Clean up your working environment
-	@rm -f coverage-all.out coverage.out
+	@rm -f cover.out
 
+GOLANGCI_LINT=./bin/golangci-lint
+GOLANGCI_LINT_VER=1.30.0
 golangci-lint:
-ifeq (, $(shell which golangci-lint))
+ifneq ($(GOLANGCI_LINT_VER), $(shell $(GOLANGCI_LINT) version 2>&1 | cut -d" " -f4))
 	@{ \
 	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.29.0 ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b bin v$(GOLANGCI_LINT_VER) ;\
 	}
-GOLANGCI_LINT=$(shell go env GOPATH)/bin/golangci-lint
-else
-GOLANGCI_LINT=$(shell which golangci-lint)
 endif
 
 # generate: ## regenerate mocks
@@ -61,4 +56,4 @@ help: ## Show this help screen
 	@grep -E '^[ a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: ensure build lint fmt fmtcheck test vet check help clean
+.PHONY: build lint lint-fix fmt fmtcheck test vet tidy check-license check clean golangci-lint help
