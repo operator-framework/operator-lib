@@ -254,6 +254,12 @@ var _ = Describe("Leader election", func() {
 				},
 			}
 		})
+
+		It("should return false if node is invalid", func() {
+			client = fake.NewFakeClient()
+			ret := isNotReadyNode(context.TODO(), client, "")
+			Expect(ret).To(Equal(false))
+		})
 		It("should return false if no NodeCondition is found", func() {
 			client = fake.NewFakeClient(node)
 			ret := isNotReadyNode(context.TODO(), client, nodeName)

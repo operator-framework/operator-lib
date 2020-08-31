@@ -167,7 +167,6 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 				log.Info("Leader lock configmap owner reference must be a pod.", "OwnerReference", existingOwners[0])
 			default:
 				leaderPod := &corev1.Pod{}
-				// leaderNode := &corev1.Node{}
 				key = crclient.ObjectKey{Namespace: ns, Name: existingOwners[0].Name}
 				err = config.Client.Get(ctx, key, leaderPod)
 				switch {
