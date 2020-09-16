@@ -1,3 +1,4 @@
+foobar
 # operator-lib
 
 [![CI](https://github.com/operator-framework/operator-lib/workflows/CI/badge.svg)](https://github.com/operator-framework/operator-lib/actions?query=workflow%3ACI+branch%3Amain)
