@@ -92,6 +92,9 @@ var _ = Describe("Condition", func() {
 			Expect(aCopy.Message).To(Equal(a.Message))
 			Expect(aCopy.LastTransitionTime).To(Equal(a.LastTransitionTime))
 		})
+		It("floops the pig", func() {
+			Expect(false).To(BeTrue())
+		})
 	})
 
 	Describe("Checking for IsTrue, IsFalse and IsUnknown", func() {
