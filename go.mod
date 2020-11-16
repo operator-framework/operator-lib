@@ -1,6 +1,6 @@
 module github.com/operator-framework/operator-lib
 
-go 1.13
+go 1.15
 
 require (
 	github.com/onsi/ginkgo v1.12.1
