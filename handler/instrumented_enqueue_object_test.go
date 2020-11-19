@@ -53,7 +53,6 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 		It("should enqueue a request & emit a metric on a CreateEvent", func() {
 			evt := event.CreateEvent{
 				Object: pod,
-				Meta:   pod.GetObjectMeta(),
 			}
 
 			// test the create
@@ -82,7 +81,6 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			BeforeEach(func() {
 				evt := event.CreateEvent{
 					Object: pod,
-					Meta:   pod.GetObjectMeta(),
 				}
 				instance.Create(evt, q)
 				Expect(q.Len()).To(Equal(1))
@@ -90,7 +88,6 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			It("should enqueue a request & remove the metric on a DeleteEvent", func() {
 				evt := event.DeleteEvent{
 					Object: pod,
-					Meta:   pod.GetObjectMeta(),
 				}
 
 				// test the delete
@@ -116,7 +113,6 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			It("should enqueue a request & there should be no new metric on a DeleteEvent", func() {
 				evt := event.DeleteEvent{
 					Object: pod,
-					Meta:   pod.GetObjectMeta(),
 				}
 
 				// test the delete
@@ -151,9 +147,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			}
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
-				MetaOld:   pod.GetObjectMeta(),
 				ObjectNew: newpod,
-				MetaNew:   newpod.GetObjectMeta(),
 			}
 
 			// test the update
@@ -186,7 +180,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 
 	Describe("getResourceLabels", func() {
 		It("should fill out map with values from given objects", func() {
-			labelMap := getResourceLabels(pod.GetObjectMeta(), pod)
+			labelMap := getResourceLabels(pod)
 			Expect(labelMap).ShouldNot(BeEmpty())
 			Expect(len(labelMap)).To(Equal(5))
 			Expect(labelMap["name"]).To(Equal(pod.GetObjectMeta().GetName()))

@@ -65,7 +65,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 		It("should enqueue a Request with the annotations of the object in case of CreateEvent", func() {
 			evt := event.CreateEvent{
 				Object: pod,
-				Meta:   pod.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -94,7 +93,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -118,7 +116,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -137,7 +134,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -157,7 +153,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -177,7 +172,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -202,7 +196,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: nd,
-				Meta:   nd.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -220,7 +213,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			instance = EnqueueRequestForAnnotation{Type: nd.GetObjectKind().GroupVersionKind().GroupKind()}
 			evt := event.CreateEvent{
 				Object: nd,
-				Meta:   nd.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -232,7 +224,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 		It("should enqueue a Request with the annotations of the object in case of DeleteEvent", func() {
 			evt := event.DeleteEvent{
 				Object: pod,
-				Meta:   pod.GetObjectMeta(),
 			}
 			instance.Delete(evt, q)
 			Expect(q.Len()).To(Equal(1))
@@ -258,9 +249,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
-				MetaOld:   pod.GetObjectMeta(),
 				ObjectNew: newPod,
-				MetaNew:   newPod.GetObjectMeta(),
 			}
 
 			instance.Update(evt, q)
@@ -282,9 +271,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
-				MetaOld:   pod.GetObjectMeta(),
 				ObjectNew: newPod,
-				MetaNew:   newPod.GetObjectMeta(),
 			}
 
 			instance.Update(evt, q)
@@ -309,7 +296,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.CreateEvent{
 				Object: repl,
-				Meta:   repl.GetObjectMeta(),
 			}
 
 			instance.Create(evt, q)
@@ -328,9 +314,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt2 := event.UpdateEvent{
 				ObjectOld: repl,
-				MetaOld:   repl.GetObjectMeta(),
 				ObjectNew: newRepl,
-				MetaNew:   newRepl.GetObjectMeta(),
 			}
 
 			instance2.Update(evt2, q)
@@ -365,9 +349,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
-				MetaOld:   pod.GetObjectMeta(),
 				ObjectNew: newPod,
-				MetaNew:   newPod.GetObjectMeta(),
 			}
 			instance.Update(evt, q)
 			Expect(q.Len()).To(Equal(2))
@@ -378,7 +360,6 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 		It("should enqueue a Request with the annotations of the object in case of GenericEvent", func() {
 			evt := event.GenericEvent{
 				Object: pod,
-				Meta:   pod.GetObjectMeta(),
 			}
 			instance.Generic(evt, q)
 			Expect(q.Len()).To(Equal(1))
