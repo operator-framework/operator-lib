@@ -23,6 +23,17 @@ import (
 	. "github.com/onsi/gomega"
 	api "github.com/operator-framework/api/pkg/operators/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeclock "k8s.io/apimachinery/pkg/util/clock"
+)
+
+const (
+	conditionFoo = "Foo"
+	conditionBar = "Bar"
+)
+
+var (
+	// clock is used to set timestamps for condition status.
+	clock kubeclock.Clock = &kubeclock.RealClock{}
 )
 
 var _ = Describe("Conditions helpers", func() {
@@ -36,7 +47,7 @@ var _ = Describe("Conditions helpers", func() {
 			Status: api.OperatorConditionStatus{
 				Conditions: []metav1.Condition{
 					{
-						Type:               "Foo",
+						Type:               conditionFoo,
 						Status:             metav1.ConditionTrue,
 						Reason:             "foo",
 						Message:            "The operator is in foo condition",
@@ -49,7 +60,7 @@ var _ = Describe("Conditions helpers", func() {
 	Describe("SetOperatorCondition", func() {
 		It("should set condition status", func() {
 			newCond := metav1.Condition{
-				Type:               "Foo",
+				Type:               conditionFoo,
 				Status:             metav1.ConditionFalse,
 				Reason:             "foo",
 				Message:            "The operator is not in foo condition",
@@ -61,7 +72,7 @@ var _ = Describe("Conditions helpers", func() {
 
 		It("should add condition status", func() {
 			newCond := metav1.Condition{
-				Type:               "Bar",
+				Type:               conditionBar,
 				Status:             metav1.ConditionTrue,
 				Reason:             "bar",
 				Message:            "The operator is in bar condition",
@@ -72,9 +83,9 @@ var _ = Describe("Conditions helpers", func() {
 			Expect(isConditionPresent(operatorCondition.Status.Conditions, newCond)).To(BeTrue())
 		})
 
-		It("should preserve the condition is already present", func() {
+		It("should preserve the condition if already present", func() {
 			newCond := metav1.Condition{
-				Type:               "Foo",
+				Type:               conditionFoo,
 				Status:             metav1.ConditionTrue,
 				Reason:             "foo",
 				Message:            "The operator is in foo condition",
@@ -86,7 +97,7 @@ var _ = Describe("Conditions helpers", func() {
 
 		It("should error when operatorCondition is nil", func() {
 			newCond := metav1.Condition{
-				Type:               "Foo",
+				Type:               conditionFoo,
 				Status:             metav1.ConditionTrue,
 				Reason:             "foo",
 				Message:            "The operator is in foo condition",
@@ -103,17 +114,17 @@ var _ = Describe("Conditions helpers", func() {
 			rmvConditionType string
 		)
 		It("should remove the condition", func() {
-			rmvConditionType = "Foo"
+			rmvConditionType = conditionFoo
 			Expect(RemoveOperatorCondition(operatorCondition, rmvConditionType)).NotTo(HaveOccurred())
 			Expect(len(operatorCondition.Status.Conditions)).To(BeEquivalentTo(0))
 		})
-		It("should not error condition to be removed is not available", func() {
-			rmvConditionType = "Bar"
+		It("should not error when condition to be removed is not available", func() {
+			rmvConditionType = conditionBar
 			Expect(RemoveOperatorCondition(operatorCondition, rmvConditionType)).NotTo(HaveOccurred())
 			Expect(len(operatorCondition.Status.Conditions)).To(BeEquivalentTo(1))
 		})
 		It("should error when operatorCondition is nil", func() {
-			rmvConditionType = "Foo"
+			rmvConditionType = conditionFoo
 			err := RemoveOperatorCondition(nil, rmvConditionType)
 			Expect(err).To(HaveOccurred())
 			Expect(err).Should(MatchError(ErrNoOperatorCondition))
@@ -126,9 +137,9 @@ var _ = Describe("Conditions helpers", func() {
 		)
 
 		It("should return the condition if it exists", func() {
-			findConditionType = "Foo"
+			findConditionType = conditionFoo
 			conditionToFind := &metav1.Condition{
-				Type:               "Foo",
+				Type:               conditionFoo,
 				Status:             metav1.ConditionTrue,
 				Reason:             "foo",
 				Message:            "The operator is in foo condition",
@@ -139,14 +150,14 @@ var _ = Describe("Conditions helpers", func() {
 			Expect(reflect.DeepEqual(c, conditionToFind)).To(BeTrue())
 		})
 		It("should return error when condition does not exist", func() {
-			findConditionType = "Bar"
+			findConditionType = conditionBar
 			c, err := FindOperatorCondition(operatorCondition, findConditionType)
 			Expect(err).To(HaveOccurred())
 			Expect(c).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("%s not found", findConditionType)))
 		})
 		It("should error when operatorCondition is nil", func() {
-			findConditionType = "Foo"
+			findConditionType = conditionFoo
 			c, err := FindOperatorCondition(nil, findConditionType)
 			Expect(err).To(HaveOccurred())
 			Expect(c).To(BeNil())
@@ -160,7 +171,7 @@ var _ = Describe("Conditions helpers", func() {
 		)
 
 		It("should return correct value when condition exists", func() {
-			conditionStatusFor = "Foo"
+			conditionStatusFor = conditionFoo
 
 			// IsConditionStatusTrue should return true
 			val, err := IsConditionStatusTrue(operatorCondition, conditionStatusFor)
@@ -179,7 +190,7 @@ var _ = Describe("Conditions helpers", func() {
 		})
 
 		It("should return false if condition status is not set to true", func() {
-			conditionStatusFor = "Foo"
+			conditionStatusFor = conditionFoo
 			operatorCondition.Status.Conditions[0].Status = metav1.ConditionFalse
 
 			// IsConditionStatusTrue should return false
@@ -198,7 +209,7 @@ var _ = Describe("Conditions helpers", func() {
 			Expect(val).To(BeFalse())
 		})
 		It("should return false if condition status is unknown", func() {
-			conditionStatusFor = "Foo"
+			conditionStatusFor = conditionFoo
 			operatorCondition.Status.Conditions[0].Status = metav1.ConditionUnknown
 
 			// IsConditionStatusTrue should return false
@@ -218,7 +229,7 @@ var _ = Describe("Conditions helpers", func() {
 
 		})
 		It("should error when condition cannot be found", func() {
-			conditionStatusFor = "Bar"
+			conditionStatusFor = conditionBar
 
 			// IsConditionStatusTrue should return error
 			val, err := IsConditionStatusTrue(operatorCondition, conditionStatusFor)
@@ -247,7 +258,7 @@ var _ = Describe("Conditions helpers", func() {
 		)
 
 		It("should return true when condition is in the specified status", func() {
-			conditionType = "Foo"
+			conditionType = conditionFoo
 			conditionStatus = metav1.ConditionTrue
 
 			val, err := IsConditionStatusPresentAndEqual(operatorCondition, conditionType, conditionStatus)
@@ -256,7 +267,7 @@ var _ = Describe("Conditions helpers", func() {
 		})
 
 		It("should return false when condition is not present in the specified status", func() {
-			conditionType = "Foo"
+			conditionType = conditionFoo
 			conditionStatus = metav1.ConditionUnknown
 
 			val, err := IsConditionStatusPresentAndEqual(operatorCondition, conditionType, conditionStatus)
@@ -265,7 +276,7 @@ var _ = Describe("Conditions helpers", func() {
 		})
 
 		It("should return error when condition is not present", func() {
-			conditionType = "Bar"
+			conditionType = conditionBar
 			conditionStatus = metav1.ConditionTrue
 
 			val, err := IsConditionStatusPresentAndEqual(operatorCondition, conditionType, conditionStatus)
@@ -283,11 +294,11 @@ var _ = Describe("Conditions helpers", func() {
 			objKey, err := GetNamespacedName()
 			Expect(err).To(HaveOccurred())
 			Expect(objKey).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("cannot find the operator condition for the operator"))
+			Expect(err.Error()).To(ContainSubstring("cannot find operator condition CR for the operator"))
 		})
 
 		It("should error when object namespace cannot be found", func() {
-			err := os.Setenv(operatorCondEnvVar, "Foo")
+			err := os.Setenv(operatorCondEnvVar, "test")
 			Expect(err).NotTo(HaveOccurred())
 
 			readNamespace = func() ([]byte, error) {
@@ -301,7 +312,7 @@ var _ = Describe("Conditions helpers", func() {
 		})
 
 		It("should return the right namespaced name", func() {
-			err := os.Setenv(operatorCondEnvVar, "Foo")
+			err := os.Setenv(operatorCondEnvVar, "test")
 			Expect(err).NotTo(HaveOccurred())
 
 			readNamespace = func() ([]byte, error) {
@@ -310,7 +321,7 @@ var _ = Describe("Conditions helpers", func() {
 			objKey, err := GetNamespacedName()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objKey).NotTo(BeNil())
-			Expect(objKey.Name).To(BeEquivalentTo("Foo"))
+			Expect(objKey.Name).To(BeEquivalentTo("test"))
 			Expect(objKey.Namespace).To(BeEquivalentTo("testns"))
 		})
 	})

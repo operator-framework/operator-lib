@@ -25,12 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	kubeclock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 var (
-	// clock is used to set status condition timestamps.
-	clock kubeclock.Clock = &kubeclock.RealClock{}
 	// ErrNoOperatorCondition indicates that the operator condition CRD is nil
 	ErrNoOperatorCondition = fmt.Errorf("operator Condition CRD is nil")
 )
@@ -50,7 +47,7 @@ var readNamespace = func() ([]byte, error) {
 func GetNamespacedName() (*types.NamespacedName, error) {
 	conditionName := os.Getenv(operatorCondEnvVar)
 	if conditionName == "" {
-		return nil, fmt.Errorf("required env %s not set, cannot find the operator condition for the operator", operatorCondEnvVar)
+		return nil, fmt.Errorf("required env %s not set, cannot find operator condition CR for the operator", operatorCondEnvVar)
 	}
 	operatorNs, err := getOperatorNamespace()
 	if err != nil {
@@ -75,10 +72,8 @@ func RemoveOperatorCondition(operatorCondition *api.OperatorCondition, condition
 	if operatorCondition == nil {
 		return ErrNoOperatorCondition
 	}
-
 	meta.RemoveStatusCondition(&operatorCondition.Status.Conditions, conditionType)
 	return nil
-
 }
 
 // FindOperatorCondition returns the specific condition present in the Condition CR.
