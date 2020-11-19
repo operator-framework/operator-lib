@@ -15,8 +15,11 @@
 package conditions
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 
 	api "github.com/operator-framework/api/pkg/operators/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,16 +39,29 @@ var (
 // which is set for the Condition resource owned by the operator.
 const operatorCondEnvVar = "OPERATOR_CONDITION_NAME"
 
+var readNamespace = func() ([]byte, error) {
+	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+}
+
+// GetNamespacedName returns the NamespacedName of the CR. It returns an error
+// when the name of the CR cannot be found from the environment variable set by
+// OLM, or when the namespace cannot be found from the associated service account
+// secret.
 func GetNamespacedName() (*types.NamespacedName, error) {
 	conditionName := os.Getenv(operatorCondEnvVar)
 	if conditionName == "" {
 		return nil, fmt.Errorf("required env %s not set, cannot find the operator condition for the operator", operatorCondEnvVar)
 	}
-	// TODO
-	return nil, nil
+	operatorNs, err := getOperatorNamespace()
+	if err != nil {
+		return nil, err
+	}
+	return &types.NamespacedName{Name: conditionName, Namespace: operatorNs}, nil
 }
 
-func SetConditionStatus(operatorCondition *api.OperatorCondition, newCond metav1.Condition) error {
+// SetOperatorCondition adds the specific condition to the Condition CR or
+// updates the provided status of the condition if already present.
+func SetOperatorCondition(operatorCondition *api.OperatorCondition, newCond metav1.Condition) error {
 	if operatorCondition == nil {
 		return ErrNoOperatorCondition
 	}
@@ -54,7 +70,8 @@ func SetConditionStatus(operatorCondition *api.OperatorCondition, newCond metav1
 	return nil
 }
 
-func RemoveConditionStatus(operatorCondition *api.OperatorCondition, conditionType string) error {
+// RemoveOperatorCondition removes the specific condition present in Condition CR.
+func RemoveOperatorCondition(operatorCondition *api.OperatorCondition, conditionType string) error {
 	if operatorCondition == nil {
 		return ErrNoOperatorCondition
 	}
@@ -64,7 +81,8 @@ func RemoveConditionStatus(operatorCondition *api.OperatorCondition, conditionTy
 
 }
 
-func FindConditionStatus(operatorCondition *api.OperatorCondition, conditionType string) (*metav1.Condition, error) {
+// FindOperatorCondition returns the specific condition present in the Condition CR.
+func FindOperatorCondition(operatorCondition *api.OperatorCondition, conditionType string) (*metav1.Condition, error) {
 	if operatorCondition == nil {
 		return nil, ErrNoOperatorCondition
 	}
@@ -77,20 +95,25 @@ func FindConditionStatus(operatorCondition *api.OperatorCondition, conditionType
 	return con, nil
 }
 
+// IsConditionStatusTrue returns true when the condition is present in "True" state in the CR.
 func IsConditionStatusTrue(operatorCondition *api.OperatorCondition, conditionType string) (bool, error) {
 	return IsConditionStatusPresentAndEqual(operatorCondition, conditionType, metav1.ConditionTrue)
 }
 
+// IsConditionStatusFalse returns true when the condition is present in "False" state in the CR.
 func IsConditionStatusFalse(operatorCondition *api.OperatorCondition, conditionType string) (bool, error) {
 	return IsConditionStatusPresentAndEqual(operatorCondition, conditionType, metav1.ConditionFalse)
 }
 
+// IsConditionStatusUnknown returns true when the condition is present in "Unknown" state in the CR.
 func IsConditionStatusUnknown(operatorCondition *api.OperatorCondition, conditionType string) (bool, error) {
 	return IsConditionStatusPresentAndEqual(operatorCondition, conditionType, metav1.ConditionUnknown)
 }
 
+// IsConditionStatusPresentAndEqual returns true when the condition is present in the CR and is in the
+// specified state.
 func IsConditionStatusPresentAndEqual(operatorCondition *api.OperatorCondition, conditionType string, conditionStatus metav1.ConditionStatus) (bool, error) {
-	c, err := FindConditionStatus(operatorCondition, conditionType)
+	c, err := FindOperatorCondition(operatorCondition, conditionType)
 	if err != nil {
 		return false, err
 	}
@@ -99,4 +122,17 @@ func IsConditionStatusPresentAndEqual(operatorCondition *api.OperatorCondition, 
 		return true, nil
 	}
 	return false, nil
+}
+
+// getOperatorNamespace returns the namespace the operator should be running in.
+func getOperatorNamespace() (string, error) {
+	nsBytes, err := readNamespace()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.New("cannot find namespace of the operator")
+		}
+		return "", err
+	}
+	ns := strings.TrimSpace(string(nsBytes))
+	return ns, nil
 }
