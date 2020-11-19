@@ -41,21 +41,21 @@ type InstrumentedEnqueueRequestForObject struct {
 
 // Create implements EventHandler, and creates the metrics.
 func (h InstrumentedEnqueueRequestForObject) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	setResourceMetric(e.Meta, e.Object)
+	setResourceMetric(e.Object, e.Object)
 	h.EnqueueRequestForObject.Create(e, q)
 }
 
 // Update implements EventHandler, and updates the metrics.
 func (h InstrumentedEnqueueRequestForObject) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	setResourceMetric(e.MetaOld, e.ObjectOld)
-	setResourceMetric(e.MetaNew, e.ObjectNew)
+	setResourceMetric(e.ObjectOld, e.ObjectOld)
+	setResourceMetric(e.ObjectNew, e.ObjectNew)
 
 	h.EnqueueRequestForObject.Update(e, q)
 }
 
 // Delete implements EventHandler, and deletes metrics.
 func (h InstrumentedEnqueueRequestForObject) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	deleteResourceMetric(e.Meta, e.Object)
+	deleteResourceMetric(e.Object, e.Object)
 	h.EnqueueRequestForObject.Delete(e, q)
 }
 

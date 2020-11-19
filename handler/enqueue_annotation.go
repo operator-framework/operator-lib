@@ -88,31 +88,31 @@ var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation{}
 
 // Create implements EventHandler
 func (e *EnqueueRequestForAnnotation) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Update implements EventHandler
 func (e *EnqueueRequestForAnnotation) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.MetaOld); ok {
+	if ok, req := e.getAnnotationRequests(evt.ObjectOld); ok {
 		q.Add(req)
 	}
-	if ok, req := e.getAnnotationRequests(evt.MetaNew); ok {
+	if ok, req := e.getAnnotationRequests(evt.ObjectNew); ok {
 		q.Add(req)
 	}
 }
 
 // Delete implements EventHandler
 func (e *EnqueueRequestForAnnotation) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Generic implements EventHandler
 func (e *EnqueueRequestForAnnotation) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }

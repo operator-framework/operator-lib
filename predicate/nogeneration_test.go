@@ -70,7 +70,7 @@ var _ = Describe("NoGenerationPredicate", func() {
 		By("the old metadata being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
 			e = makeUpdateEventFor(old, new)
-			e.MetaOld = nil
+			e.ObjectOld = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 		By("the new object being nil", func() {
@@ -82,7 +82,7 @@ var _ = Describe("NoGenerationPredicate", func() {
 		By("the new metadata being nil", func() {
 			old, new := &appsv1.Deployment{}, &appsv1.Deployment{}
 			e = makeUpdateEventFor(old, new)
-			e.MetaNew = nil
+			e.ObjectNew = nil
 			Expect(pred.Update(e)).To(BeFalse())
 		})
 	})
