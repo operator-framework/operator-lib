@@ -180,7 +180,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 
 	Describe("getResourceLabels", func() {
 		It("should fill out map with values from given objects", func() {
-			labelMap := getResourceLabels(pod.GetObjectMeta(), pod)
+			labelMap := getResourceLabels(pod)
 			Expect(labelMap).ShouldNot(BeEmpty())
 			Expect(len(labelMap)).To(Equal(5))
 			Expect(labelMap["name"]).To(Equal(pod.GetObjectMeta().GetName()))
