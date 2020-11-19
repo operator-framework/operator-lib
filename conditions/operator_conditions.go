@@ -41,6 +41,7 @@ func GetNamespacedName() (*types.NamespacedName, error) {
 	if conditionName == "" {
 		return nil, fmt.Errorf("required env %s not set, cannot find the operator condition for the operator", operatorCondEnvVar)
 	}
+	// TODO
 	return nil, nil
 }
 
