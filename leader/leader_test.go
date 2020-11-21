@@ -113,36 +113,6 @@ var _ = Describe("Leader election", func() {
 			Expect(isPodEvicted(*leaderPod)).To(Equal(true))
 		})
 	})
-	Describe("getOperatorNamespace", func() {
-		It("should return error when namespace not found", func() {
-			readNamespace = func() ([]byte, error) {
-				return nil, os.ErrNotExist
-			}
-			namespace, err := getOperatorNamespace()
-			Expect(err).To(Equal(ErrNoNamespace))
-			Expect(namespace).To(Equal(""))
-		})
-		It("should return namespace", func() {
-			readNamespace = func() ([]byte, error) {
-				return []byte("testnamespace"), nil
-			}
-
-			// test
-			namespace, err := getOperatorNamespace()
-			Expect(err).Should(BeNil())
-			Expect(namespace).To(Equal("testnamespace"))
-		})
-		It("should trim whitespace from namespace", func() {
-			readNamespace = func() ([]byte, error) {
-				return []byte("   testnamespace    "), nil
-			}
-
-			// test
-			namespace, err := getOperatorNamespace()
-			Expect(err).Should(BeNil())
-			Expect(namespace).To(Equal("testnamespace"))
-		})
-	})
 	Describe("myOwnerRef", func() {
 		var (
 			client crclient.Client

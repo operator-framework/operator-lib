@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/operator-framework/operator-lib/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ import (
 
 // ErrNoNamespace indicates that a namespace could not be found for the current
 // environment
-var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
+var ErrNoNamespace = utils.ErrNoNamespace
 
 // podNameEnvVar is the constant for env variable POD_NAME
 // which is the name of the current pod.
@@ -103,7 +103,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 		return err
 	}
 
-	ns, err := getOperatorNamespace()
+	ns, err := utils.GetOperatorNamespace(readNamespace)
 	if err != nil {
 		return err
 	}
@@ -234,20 +234,6 @@ func isPodEvicted(pod corev1.Pod) bool {
 	podFailed := pod.Status.Phase == corev1.PodFailed
 	podEvicted := pod.Status.Reason == "Evicted"
 	return podFailed && podEvicted
-}
-
-// getOperatorNamespace returns the namespace the operator should be running in.
-func getOperatorNamespace() (string, error) {
-	nsBytes, err := readNamespace()
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", ErrNoNamespace
-		}
-		return "", err
-	}
-	ns := strings.TrimSpace(string(nsBytes))
-	log.V(1).Info("Found namespace", "Namespace", ns)
-	return ns, nil
 }
 
 // getPod returns a Pod object that corresponds to the pod in which the code
