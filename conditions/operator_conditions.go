@@ -15,13 +15,11 @@
 package conditions
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 
 	api "github.com/operator-framework/api/pkg/operators/v1"
+	"github.com/operator-framework/operator-lib/internal/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,26 +30,29 @@ var (
 	ErrNoOperatorCondition = fmt.Errorf("operator Condition CRD is nil")
 )
 
-// TODO: verify from OLM if this will be the name of the environment variable
-// which is set for the Condition resource owned by the operator.
-const operatorCondEnvVar = "OPERATOR_CONDITION_NAME"
+const (
+	// operatorCondEnvVar is the env variable which
+	// contains the name of the Condition CR associated to the operator,
+	// set by OLM.
+	operatorCondEnvVar = "OPERATOR_CONDITION_NAME"
+)
 
-var readNamespace = func() ([]byte, error) {
-	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-}
+var readNamespace = utils.GetOperatorNamespace
 
 // GetNamespacedName returns the NamespacedName of the CR. It returns an error
 // when the name of the CR cannot be found from the environment variable set by
-// OLM, or when the namespace cannot be found from the associated service account
-// secret.
+// OLM. Hence, GetNamespacedName() can provide the NamespacedName when the operator
+// is running on cluster and is being managed by OLM. If running locally, operator
+// writers are encouraged to skip this method or gracefully handle the errors by logging
+// a message.
 func GetNamespacedName() (*types.NamespacedName, error) {
 	conditionName := os.Getenv(operatorCondEnvVar)
 	if conditionName == "" {
-		return nil, fmt.Errorf("required env %s not set, cannot find operator condition CR for the operator", operatorCondEnvVar)
+		return nil, fmt.Errorf("could not determine operator condition name: environment variable %s not set", operatorCondEnvVar)
 	}
-	operatorNs, err := getOperatorNamespace()
+	operatorNs, err := readNamespace()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not determine operator namespace: %v", err)
 	}
 	return &types.NamespacedName{Name: conditionName, Namespace: operatorNs}, nil
 }
@@ -117,17 +118,4 @@ func IsConditionStatusPresentAndEqual(operatorCondition *api.OperatorCondition, 
 		return true, nil
 	}
 	return false, nil
-}
-
-// getOperatorNamespace returns the namespace the operator should be running in.
-func getOperatorNamespace() (string, error) {
-	nsBytes, err := readNamespace()
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", errors.New("cannot find namespace of the operator")
-		}
-		return "", err
-	}
-	ns := strings.TrimSpace(string(nsBytes))
-	return ns, nil
 }

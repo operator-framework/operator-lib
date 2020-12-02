@@ -70,8 +70,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an ErrNoNamespace", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return nil, os.ErrNotExist
+			readNamespace = func() (string, error) {
+				return "", ErrNoNamespace
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).ShouldNot(BeNil())
@@ -80,8 +80,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 
 			err := Become(context.TODO(), "leader-test", WithClient(client))
@@ -111,36 +111,6 @@ var _ = Describe("Leader election", func() {
 			leaderPod.Status.Phase = corev1.PodFailed
 			leaderPod.Status.Reason = "Evicted"
 			Expect(isPodEvicted(*leaderPod)).To(Equal(true))
-		})
-	})
-	Describe("getOperatorNamespace", func() {
-		It("should return error when namespace not found", func() {
-			readNamespace = func() ([]byte, error) {
-				return nil, os.ErrNotExist
-			}
-			namespace, err := getOperatorNamespace()
-			Expect(err).To(Equal(ErrNoNamespace))
-			Expect(namespace).To(Equal(""))
-		})
-		It("should return namespace", func() {
-			readNamespace = func() ([]byte, error) {
-				return []byte("testnamespace"), nil
-			}
-
-			// test
-			namespace, err := getOperatorNamespace()
-			Expect(err).Should(BeNil())
-			Expect(namespace).To(Equal("testnamespace"))
-		})
-		It("should trim whitespace from namespace", func() {
-			readNamespace = func() ([]byte, error) {
-				return []byte("   testnamespace    "), nil
-			}
-
-			// test
-			namespace, err := getOperatorNamespace()
-			Expect(err).Should(BeNil())
-			Expect(namespace).To(Equal("testnamespace"))
 		})
 	})
 	Describe("myOwnerRef", func() {
