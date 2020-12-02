@@ -70,8 +70,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an ErrNoNamespace", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return nil, os.ErrNotExist
+			readNamespace = func() (string, error) {
+				return "", ErrNoNamespace
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).ShouldNot(BeNil())
@@ -80,8 +80,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 
 			err := Become(context.TODO(), "leader-test", WithClient(client))

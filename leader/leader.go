@@ -17,7 +17,6 @@ package leader
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -39,9 +38,7 @@ var ErrNoNamespace = utils.ErrNoNamespace
 // which is the name of the current pod.
 const podNameEnvVar = "POD_NAME"
 
-var readNamespace = func() ([]byte, error) {
-	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-}
+var readNamespace = utils.GetOperatorNamespace
 
 var log = logf.Log.WithName("leader")
 
@@ -103,7 +100,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 		return err
 	}
 
-	ns, err := utils.GetOperatorNamespace(readNamespace)
+	ns, err := readNamespace()
 	if err != nil {
 		return err
 	}

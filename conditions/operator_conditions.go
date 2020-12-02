@@ -16,7 +16,6 @@ package conditions
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	api "github.com/operator-framework/api/pkg/operators/v1"
@@ -38,9 +37,7 @@ const (
 	operatorCondEnvVar = "OPERATOR_CONDITION_NAME"
 )
 
-var readNamespace = func() ([]byte, error) {
-	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-}
+var readNamespace = utils.GetOperatorNamespace
 
 // GetNamespacedName returns the NamespacedName of the CR. It returns an error
 // when the name of the CR cannot be found from the environment variable set by
@@ -53,7 +50,7 @@ func GetNamespacedName() (*types.NamespacedName, error) {
 	if conditionName == "" {
 		return nil, fmt.Errorf("could not determine operator condition name: environment variable %s not set", operatorCondEnvVar)
 	}
-	operatorNs, err := utils.GetOperatorNamespace(readNamespace)
+	operatorNs, err := readNamespace()
 	if err != nil {
 		return nil, fmt.Errorf("could not determine operator namespace: %v", err)
 	}

@@ -73,8 +73,8 @@ var _ = Describe("Conditions helpers", func() {
 			err := os.Setenv(operatorCondEnvVar, "test")
 			Expect(err).NotTo(HaveOccurred())
 
-			readNamespace = func() ([]byte, error) {
-				return nil, os.ErrNotExist
+			readNamespace = func() (string, error) {
+				return "", os.ErrNotExist
 			}
 
 			objKey, err := GetNamespacedName()
@@ -87,8 +87,8 @@ var _ = Describe("Conditions helpers", func() {
 			err := os.Setenv(operatorCondEnvVar, "test")
 			Expect(err).NotTo(HaveOccurred())
 
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 			objKey, err := GetNamespacedName()
 			Expect(err).NotTo(HaveOccurred())
