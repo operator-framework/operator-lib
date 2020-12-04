@@ -1,5 +1,7 @@
 SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -path "*/.git/*")
 .DEFAULT_GOAL    := build
+ENVTEST_ASSETS_DIR = $(shell pwd)/testbin
+SHELL = /bin/bash
 
 build: $(SOURCES) ## Build Test
 	go build -i -ldflags="-s -w" ./...
@@ -16,7 +18,11 @@ fmt: ## Run go fmt
 fmtcheck: ## Check go formatting
 	@gofmt -l $(SOURCES) | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi
 
+export KUBEBUILDER_ASSETS := $(ENVTEST_ASSETS_DIR)/bin
 test: ## Run unit tests
+	mkdir -p $(ENVTEST_ASSETS_DIR)
+	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.6.3/hack/setup-envtest.sh
+	. $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR)
 	@go test -race -covermode atomic -coverprofile cover.out ./...
 
 vet: ## Run go vet

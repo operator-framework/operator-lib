@@ -316,8 +316,8 @@ github.com/onsi/gomega v1.9.0/go.mod h1:Ho0h+IUsWyvy1OpqCwxlQ/21gkhVunqlU8fDGcoT
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.10.2 h1:aY/nuoWlKJud2J6U0E3NWsjlg+0GtwXxgEqthRdzlcs=
 github.com/onsi/gomega v1.10.2/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
-github.com/operator-framework/api v0.3.21-0.20201112205953-820e285e84ae h1:COmTgLedekKDD1G7v2hC6rU2EOjWO7tSBNnPMEbiZLE=
-github.com/operator-framework/api v0.3.21-0.20201112205953-820e285e84ae/go.mod h1:GVNiB6AQucwdZz3ZFXNv9HtcLOzcFnr6O/QldzKG93g=
+github.com/operator-framework/api v0.3.25 h1:d6WgHCshCffT37okVZeL+IbGlhrsHy57xdfMnopC8rI=
+github.com/operator-framework/api v0.3.25/go.mod h1:GVNiB6AQucwdZz3ZFXNv9HtcLOzcFnr6O/QldzKG93g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
@@ -685,6 +685,8 @@ k8s.io/component-base v0.18.2/go.mod h1:kqLlMuhJNHQ9lz8Z7V5bxUUtjFZnrypArGl58gmD
 k8s.io/component-base v0.19.2/go.mod h1:g5LrsiTiabMLZ40AR6Hl45f088DevyGY+cCE2agEIVo=
 k8s.io/component-base v0.19.3 h1:c+DzDNAQFlaoyX+yv8YuWi8xmlQvvY5DnJGbaz5U74o=
 k8s.io/component-base v0.19.3/go.mod h1:WhLWSIefQn8W8jxSLl5WNiR6z8oyMe/8Zywg7alOkRc=
+k8s.io/component-base v0.19.4 h1:HobPRToQ8KJ9ubRju6PUAk9I5V1GNMJZ4PyWbiWA0uI=
+k8s.io/component-base v0.19.4/go.mod h1:ZzuSLlsWhajIDEkKF73j64Gz/5o0AgON08FgRbEPI70=
 k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/gengo v0.0.0-20200114144118-36b2048a9120/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/gengo v0.0.0-20200413195148-3a45101e95ac/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
