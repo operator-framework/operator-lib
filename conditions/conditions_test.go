@@ -131,7 +131,7 @@ var _ = Describe("Condition", func() {
 				Expect(con.Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			})
 
-			It("should error when the condition cannot nbe found", func() {
+			It("should error when the condition cannot be found", func() {
 				c, err := NewCondition(cl, conditionBar)
 				Expect(err).NotTo(HaveOccurred())
 
