@@ -24,9 +24,11 @@ import (
 	apiv1 "github.com/operator-framework/api/pkg/operators/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kubeclock "k8s.io/apimachinery/pkg/util/clock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -43,8 +45,10 @@ var _ = Describe("Condition", func() {
 	var err error
 
 	BeforeEach(func() {
-		cl, err = client.New(cfg, client.Options{})
+		sch := runtime.NewScheme()
+		err = apiv1.AddToScheme(sch)
 		Expect(err).NotTo(HaveOccurred())
+		cl = fake.NewFakeClientWithScheme(sch)
 	})
 
 	Describe("NewCondition", func() {
@@ -102,8 +106,10 @@ var _ = Describe("Condition", func() {
 			}
 
 			// create a new client
-			cl, err = client.New(cfg, client.Options{Scheme: sch})
+			sch := runtime.NewScheme()
+			err = apiv1.AddToScheme(sch)
 			Expect(err).NotTo(HaveOccurred())
+			cl = fake.NewFakeClientWithScheme(sch)
 
 			// create an operator Condition resource
 			err = cl.Create(ctx, operatorCond)
