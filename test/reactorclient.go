@@ -52,7 +52,7 @@ func NewReactorClient(client crclient.Client) ReactorClient {
 // Get retrieves an obj for the given object key from the Kubernetes Cluster.
 // obj must be a struct pointer so that obj can be updated with the response
 // returned by the Server.
-func (c ReactorClient) Get(ctx context.Context, key crclient.ObjectKey, obj runtime.Object) error {
+func (c ReactorClient) Get(ctx context.Context, key crclient.ObjectKey, obj crclient.Object) error {
 	resource, err := getGVRFromObject(obj, scheme.Scheme)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (c ReactorClient) Get(ctx context.Context, key crclient.ObjectKey, obj runt
 // List retrieves list of objects for a given namespace and list options. On a
 // successful call, Items field in the list will be populated with the
 // result returned from the server.
-func (c ReactorClient) List(ctx context.Context, list runtime.Object, opts ...crclient.ListOption) error {
+func (c ReactorClient) List(ctx context.Context, list crclient.ObjectList, opts ...crclient.ListOption) error {
 	gvk, err := apiutil.GVKForObject(list, scheme.Scheme)
 	if err != nil {
 		return err
@@ -80,13 +80,8 @@ func (c ReactorClient) List(ctx context.Context, list runtime.Object, opts ...cr
 	if !strings.HasSuffix(gvk.Kind, "List") {
 		return fmt.Errorf("non-list type %T (kind %q) passed as output", list, gvk)
 	}
-	// we need the non-list GVK, so chop off the "List" from the end of the kind
-	gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
 
-	resource, err := getGVRFromObject(list, scheme.Scheme)
-	if err != nil {
-		return err
-	}
+	resource, _ := meta.UnsafeGuessKindToResource(gvk)
 
 	listOpts := crclient.ListOptions{}
 	listOpts.ApplyOptions(opts)
@@ -103,7 +98,7 @@ func (c ReactorClient) List(ctx context.Context, list runtime.Object, opts ...cr
 }
 
 // Create saves the object obj in the Kubernetes cluster.
-func (c ReactorClient) Create(ctx context.Context, obj runtime.Object, opts ...crclient.CreateOption) error {
+func (c ReactorClient) Create(ctx context.Context, obj crclient.Object, opts ...crclient.CreateOption) error {
 	resource, err := getGVRFromObject(obj, scheme.Scheme)
 	if err != nil {
 		return err
@@ -134,7 +129,7 @@ func (c ReactorClient) Create(ctx context.Context, obj runtime.Object, opts ...c
 }
 
 // Delete deletes the given obj from Kubernetes cluster.
-func (c ReactorClient) Delete(ctx context.Context, obj runtime.Object, opts ...crclient.DeleteOption) error {
+func (c ReactorClient) Delete(ctx context.Context, obj crclient.Object, opts ...crclient.DeleteOption) error {
 	resource, err := getGVRFromObject(obj, scheme.Scheme)
 	if err != nil {
 		return err
@@ -157,7 +152,7 @@ func (c ReactorClient) Delete(ctx context.Context, obj runtime.Object, opts ...c
 
 // Update updates the given obj in the Kubernetes cluster. obj must be a
 // struct pointer so that obj can be updated with the content returned by the Server.
-func (c ReactorClient) Update(ctx context.Context, obj runtime.Object, opts ...crclient.UpdateOption) error {
+func (c ReactorClient) Update(ctx context.Context, obj crclient.Object, opts ...crclient.UpdateOption) error {
 	resource, err := getGVRFromObject(obj, scheme.Scheme)
 	if err != nil {
 		return err
@@ -180,7 +175,7 @@ func (c ReactorClient) Update(ctx context.Context, obj runtime.Object, opts ...c
 
 // Patch patches the given obj in the Kubernetes cluster. obj must be a
 // struct pointer so that obj can be updated with the content returned by the Server.
-func (c ReactorClient) Patch(ctx context.Context, obj runtime.Object, patch crclient.Patch, opts ...crclient.PatchOption) error {
+func (c ReactorClient) Patch(ctx context.Context, obj crclient.Object, patch crclient.Patch, opts ...crclient.PatchOption) error {
 	resource, err := getGVRFromObject(obj, scheme.Scheme)
 	if err != nil {
 		return err
@@ -208,7 +203,7 @@ func (c ReactorClient) Patch(ctx context.Context, obj runtime.Object, patch crcl
 }
 
 // DeleteAllOf deletes all objects of the given type matching the given options.
-func (c ReactorClient) DeleteAllOf(ctx context.Context, obj runtime.Object, opts ...crclient.DeleteAllOfOption) error {
+func (c ReactorClient) DeleteAllOf(ctx context.Context, obj crclient.Object, opts ...crclient.DeleteAllOfOption) error {
 	return c.client.DeleteAllOf(ctx, obj, opts...)
 }
 
@@ -218,8 +213,18 @@ func (c ReactorClient) Status() crclient.StatusWriter {
 	return c.client.Status()
 }
 
+// Scheme returns the scheme this client is using.
+func (c ReactorClient) Scheme() *runtime.Scheme {
+	return c.client.Scheme()
+}
+
+// RESTMapper returns the scheme this client is using.
+func (c ReactorClient) RESTMapper() meta.RESTMapper {
+	return c.client.RESTMapper()
+}
+
 // Copied from controller-runtime fake client.
-func getGVRFromObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionResource, error) {
+func getGVRFromObject(obj crclient.Object, scheme *runtime.Scheme) (schema.GroupVersionResource, error) {
 	gvk, err := apiutil.GVKForObject(obj, scheme)
 	if err != nil {
 		return schema.GroupVersionResource{}, err

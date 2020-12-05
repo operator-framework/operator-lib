@@ -209,6 +209,7 @@ var _ = Describe("ReactorClient", func() {
 
 			list := &corev1.PodList{}
 			err := reactor.List(context.TODO(), list)
+			fmt.Printf("XXX List returned err = %v\n", err)
 			Expect(err).ShouldNot(BeNil())
 			Expect(err.Error()).To(Equal("Error listing pods"))
 			Expect(list.Items).To(HaveLen(0))

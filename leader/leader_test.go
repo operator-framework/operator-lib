@@ -105,8 +105,8 @@ var _ = Describe("Leader election", func() {
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
 			// ensure namespace is found
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).ShouldNot(BeNil())
@@ -124,8 +124,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error retrieving ConfigMap returns an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 			reactor.PrependReactor("get", "configmaps",
 				func(action testing.Action) (bool, runtime.Object, error) {
@@ -138,8 +138,8 @@ var _ = Describe("Leader election", func() {
 		Context("when there is no existing lock ConfigMap", func() {
 			It("should create a new configmap with ownerref", func() {
 				os.Setenv("POD_NAME", "pod-no-configmap")
-				readNamespace = func() ([]byte, error) {
-					return []byte("testns"), nil
+				readNamespace = func() (string, error) {
+					return "testns", nil
 				}
 
 				err := Become(context.TODO(), "pod-no-configmap", WithClient(client))
@@ -154,8 +154,8 @@ var _ = Describe("Leader election", func() {
 			})
 			It("should return the error if configmap creation fails", func() {
 				os.Setenv("POD_NAME", "pod-no-configmap")
-				readNamespace = func() ([]byte, error) {
-					return []byte("testns"), nil
+				readNamespace = func() (string, error) {
+					return "testns", nil
 				}
 				reactor.PrependReactor("create", "configmaps",
 					func(action testing.Action) (bool, runtime.Object, error) {
@@ -172,8 +172,8 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return Unknown error trying to create ConfigMap lock", func() {
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 			reactor.PrependReactor("get", "configmaps",
 				func(action testing.Action) (bool, runtime.Object, error) {
@@ -192,8 +192,8 @@ var _ = Describe("Leader election", func() {
 		It("should handle when ConfigMap already exists and become leader", func() {
 			Skip("needs a little more work with reactor client")
 			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() ([]byte, error) {
-				return []byte("testns"), nil
+			readNamespace = func() (string, error) {
+				return "testns", nil
 			}
 
 			getcount := 1
