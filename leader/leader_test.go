@@ -34,6 +34,8 @@ import (
 	"github.com/operator-framework/operator-lib/test"
 )
 
+const testNamespace = "testns"
+
 var _ = Describe("Leader election", func() {
 
 	Describe("Become", func() {
@@ -46,7 +48,7 @@ var _ = Describe("Leader election", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
-						Namespace: "testns",
+						Namespace: testNamespace,
 						OwnerReferences: []metav1.OwnerReference{
 							{
 								APIVersion: "v1",
@@ -59,7 +61,7 @@ var _ = Describe("Leader election", func() {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
-						Namespace: "testns",
+						Namespace: testNamespace,
 						OwnerReferences: []metav1.OwnerReference{
 							{
 								APIVersion: "v1",
@@ -72,7 +74,7 @@ var _ = Describe("Leader election", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pod-no-configmap",
-						Namespace: "testns",
+						Namespace: testNamespace,
 						OwnerReferences: []metav1.OwnerReference{
 							{
 								APIVersion: "v1",
@@ -106,7 +108,7 @@ var _ = Describe("Leader election", func() {
 			os.Unsetenv("POD_NAME")
 			// ensure namespace is found
 			readNamespace = func() (string, error) {
-				return "testns", nil
+				return testNamespace, nil
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
 			Expect(err).ShouldNot(BeNil())
@@ -116,7 +118,7 @@ var _ = Describe("Leader election", func() {
 		It("should return nil when configmap exists with matching owner ref", func() {
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
-				return "testns", nil
+				return testNamespace, nil
 			}
 
 			err := Become(context.TODO(), "leader-test", WithClient(client))
@@ -125,7 +127,7 @@ var _ = Describe("Leader election", func() {
 		It("should return an error retrieving ConfigMap returns an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
-				return "testns", nil
+				return testNamespace, nil
 			}
 			reactor.PrependReactor("get", "configmaps",
 				func(action testing.Action) (bool, runtime.Object, error) {
@@ -139,14 +141,14 @@ var _ = Describe("Leader election", func() {
 			It("should create a new configmap with ownerref", func() {
 				os.Setenv("POD_NAME", "pod-no-configmap")
 				readNamespace = func() (string, error) {
-					return "testns", nil
+					return testNamespace, nil
 				}
 
 				err := Become(context.TODO(), "pod-no-configmap", WithClient(client))
 				Expect(err).Should(BeNil())
 
 				cm := &corev1.ConfigMap{}
-				key := crclient.ObjectKey{Namespace: "testns", Name: "pod-no-configmap"}
+				key := crclient.ObjectKey{Namespace: testNamespace, Name: "pod-no-configmap"}
 				err = client.Get(context.TODO(), key, cm)
 				Expect(err).Should(BeNil())
 				Expect(len(cm.GetOwnerReferences())).To(Equal(1))
@@ -155,7 +157,7 @@ var _ = Describe("Leader election", func() {
 			It("should return the error if configmap creation fails", func() {
 				os.Setenv("POD_NAME", "pod-no-configmap")
 				readNamespace = func() (string, error) {
-					return "testns", nil
+					return testNamespace, nil
 				}
 				reactor.PrependReactor("create", "configmaps",
 					func(action testing.Action) (bool, runtime.Object, error) {
@@ -173,7 +175,7 @@ var _ = Describe("Leader election", func() {
 		It("should return Unknown error trying to create ConfigMap lock", func() {
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
-				return "testns", nil
+				return testNamespace, nil
 			}
 			reactor.PrependReactor("get", "configmaps",
 				func(action testing.Action) (bool, runtime.Object, error) {
@@ -193,7 +195,7 @@ var _ = Describe("Leader election", func() {
 			Skip("needs a little more work with reactor client")
 			os.Setenv("POD_NAME", "leader-test")
 			readNamespace = func() (string, error) {
-				return "testns", nil
+				return testNamespace, nil
 			}
 
 			getcount := 1
@@ -205,7 +207,7 @@ var _ = Describe("Leader election", func() {
 						cm := &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      "leader-test",
-								Namespace: "testns",
+								Namespace: testNamespace,
 								OwnerReferences: []metav1.OwnerReference{
 									{
 										APIVersion: "v1",
@@ -228,7 +230,7 @@ var _ = Describe("Leader election", func() {
 						cm := &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      "leader-test",
-								Namespace: "testns",
+								Namespace: testNamespace,
 								OwnerReferences: []metav1.OwnerReference{
 									{
 										APIVersion: "v1",
@@ -282,7 +284,7 @@ var _ = Describe("Leader election", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mypod",
-						Namespace: "testns",
+						Namespace: testNamespace,
 					},
 				},
 			)
@@ -299,7 +301,7 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return the owner reference without error", func() {
 			os.Setenv("POD_NAME", "mypod")
-			owner, err := myOwnerRef(context.TODO(), client, "testns")
+			owner, err := myOwnerRef(context.TODO(), client, testNamespace)
 			Expect(err).Should(BeNil())
 			Expect(owner.APIVersion).To(Equal("v1"))
 			Expect(owner.Kind).To(Equal("Pod"))
@@ -315,7 +317,7 @@ var _ = Describe("Leader election", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mypod",
-						Namespace: "testns",
+						Namespace: testNamespace,
 					},
 				},
 			)
@@ -332,7 +334,7 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return the pod with the given name", func() {
 			os.Setenv("POD_NAME", "mypod")
-			pod, err := getPod(context.TODO(), client, "testns")
+			pod, err := getPod(context.TODO(), client, testNamespace)
 			Expect(err).Should(BeNil())
 			Expect(pod).ShouldNot(BeNil())
 			Expect(pod.TypeMeta.APIVersion).To(Equal("v1"))
@@ -427,7 +429,7 @@ var _ = Describe("Leader election", func() {
 			pod = &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-test",
-					Namespace: "testns",
+					Namespace: testNamespace,
 					OwnerReferences: []metav1.OwnerReference{
 						{
 							APIVersion: "v1",
@@ -440,7 +442,7 @@ var _ = Describe("Leader election", func() {
 			configmap = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-test",
-					Namespace: "testns",
+					Namespace: testNamespace,
 					OwnerReferences: []metav1.OwnerReference{
 						{
 							APIVersion: "v1",
