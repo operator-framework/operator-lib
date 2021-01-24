@@ -21,17 +21,41 @@ import (
 	"strings"
 )
 
+const (
+	// SAFileDefaultLocation default location of the service account namespace file
+	SAFileDefaultLocation = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+	// SAFileLocationEnv is the name of the environment variable that holds the service
+	// account file location file. It is not set by default, but setting it allows operator
+	// developers set different file location, because the default path may not be accessible
+	// on the development environment. If not set, the default path will be used.
+	SAFileLocationEnv = "SA_FILE_PATH"
+
+	// OperatorNamespaceEnv the name of the environm,ent variable that holds the namespace.
+	// If set, the GetOperatorNamespace method returns its value. If not, the method read the
+	// service account file.
+	OperatorNamespaceEnv = "OPERATOR_NAMESPACE"
+)
+
 // ErrNoNamespace indicates that a namespace could not be found for the current
 // environment
 var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 
 var readSAFile = func() ([]byte, error) {
-	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	saFileLocation, found := os.LookupEnv(SAFileLocationEnv)
+	if !found {
+		saFileLocation = SAFileDefaultLocation
+	}
+	return ioutil.ReadFile(saFileLocation)
 }
 
 // GetOperatorNamespace returns the namespace the operator should be running in from
 // the associated service account secret.
 var GetOperatorNamespace = func() (string, error) {
+	if ns := strings.TrimSpace(os.Getenv(OperatorNamespaceEnv)); ns != "" {
+		return ns, nil
+	}
+
 	nsBytes, err := readSAFile()
 	if err != nil {
 		if os.IsNotExist(err) {
