@@ -57,6 +57,7 @@ jobs:
 
   go-apidiff:
     name: go-apidiff
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
 
