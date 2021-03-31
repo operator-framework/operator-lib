@@ -60,19 +60,11 @@ type NoGenerationPredicate struct {
 // Update implements the default UpdateEvent filter for validating absence Generation.
 func (NoGenerationPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil {
-		log.V(1).Info("Update event has no old metadata", "event", e)
-		return false
-	}
-	if e.ObjectOld == nil {
 		log.V(1).Info("Update event has no old runtime object to update", "event", e)
 		return false
 	}
 	if e.ObjectNew == nil {
 		log.V(1).Info("Update event has no new runtime object for update", "event", e)
-		return false
-	}
-	if e.ObjectNew == nil {
-		log.V(1).Info("Update event has no new metadata", "event", e)
 		return false
 	}
 	// Since generation is monotonically increasing, the new generation will always be greater than the old
