@@ -4,3 +4,11 @@
 [![Coverage Status](https://coveralls.io/repos/github/operator-framework/operator-lib/badge.svg?branch=main)](https://coveralls.io/github/operator-framework/operator-lib?branch=main)
 
 Helpers for Operator developers.
+
+## Package glossary
+
+This table is a non-exhaustive list of package descriptions within this project.
+
+| Package path | Short description |
+|---|---|
+| [`patterns`](./patterns) | Helpers for common controller patterns |
