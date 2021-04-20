@@ -20,7 +20,6 @@ import (
 	"os"
 
 	apiv1 "github.com/operator-framework/api/pkg/operators/v1"
-	"github.com/operator-framework/operator-lib/internal/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,16 +29,6 @@ import (
 var (
 	// ErrNoOperatorCondition indicates that the operator condition CRD is nil
 	ErrNoOperatorCondition = fmt.Errorf("operator Condition CRD is nil")
-
-	// readNamespace gets the namespacedName of the operator.
-	readNamespace = utils.GetOperatorNamespace
-)
-
-const (
-	// operatorCondEnvVar is the env variable which
-	// contains the name of the Condition CR associated to the operator,
-	// set by OLM.
-	operatorCondEnvVar = "OPERATOR_CONDITION_NAME"
 )
 
 // condition is a Condition that gets and sets a specific
@@ -51,21 +40,6 @@ type condition struct {
 }
 
 var _ Condition = &condition{}
-
-// NewCondition returns a new Condition interface using the provided client
-// for the specified conditionType. The condition will internally fetch the namespacedName
-// of the operatorConditionCRD.
-func NewCondition(cl client.Client, condType apiv1.ConditionType) (Condition, error) {
-	objKey, err := GetNamespacedName()
-	if err != nil {
-		return nil, err
-	}
-	return &condition{
-		namespacedName: *objKey,
-		condType:       condType,
-		client:         cl,
-	}, nil
-}
 
 // Get implements conditions.Get
 func (c *condition) Get(ctx context.Context) (*metav1.Condition, error) {
