@@ -15,8 +15,11 @@
 package predicate
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -60,6 +63,32 @@ var _ = Describe("DependentPredicate", func() {
 			When("except resource version is different", func() {
 				BeforeEach(func() {
 					newObj.SetResourceVersion("bar")
+				})
+				It("should return false", func() {
+					e := makeUpdateEventFor(oldObj, newObj)
+					Expect(pred.Update(e)).To(BeFalse())
+				})
+			})
+
+			When("except time in managedFields is different", func() {
+				BeforeEach(func() {
+					curTime := time.Now()
+					oldTime := metav1.NewTime(curTime)
+					oldObj.SetManagedFields([]metav1.ManagedFieldsEntry{{
+						Manager:    "test",
+						Operation:  "Update",
+						APIVersion: "v1",
+						Time:       &oldTime,
+					}})
+
+					duration, _ := time.ParseDuration("4h")
+					newTime := metav1.NewTime(curTime.Add(duration))
+					newObj.SetManagedFields([]metav1.ManagedFieldsEntry{{
+						Manager:    "test",
+						Operation:  "Update",
+						APIVersion: "v1",
+						Time:       &newTime,
+					}})
 				})
 				It("should return false", func() {
 					e := makeUpdateEventFor(oldObj, newObj)
