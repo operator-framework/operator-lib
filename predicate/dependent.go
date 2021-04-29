@@ -17,6 +17,7 @@ package predicate
 import (
 	"reflect"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -91,6 +92,9 @@ func (DependentPredicate) Update(e event.UpdateEvent) bool {
 	old.SetResourceVersion("")
 	new.SetResourceVersion("")
 
+	old.SetManagedFields(removeTimeFromManagedFields(old.GetManagedFields()))
+	new.SetManagedFields(removeTimeFromManagedFields(new.GetManagedFields()))
+
 	if reflect.DeepEqual(old.Object, new.Object) {
 		return false
 	}
@@ -98,4 +102,16 @@ func (DependentPredicate) Update(e event.UpdateEvent) bool {
 		"name", new.GetName(), "namespace", new.GetNamespace(), "apiVersion",
 		new.GroupVersionKind().GroupVersion(), "kind", new.GroupVersionKind().Kind)
 	return true
+}
+
+func removeTimeFromManagedFields(fields []metav1.ManagedFieldsEntry) []metav1.ManagedFieldsEntry {
+	if fields == nil {
+		return nil
+	}
+	newFields := []metav1.ManagedFieldsEntry{}
+	for _, field := range fields {
+		field.Time = nil
+		newFields = append(newFields, field)
+	}
+	return newFields
 }
