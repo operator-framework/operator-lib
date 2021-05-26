@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	apiv1 "github.com/operator-framework/api/pkg/operators/v1"
+	apiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	conditionFoo apiv1.ConditionType = "conditionFoo"
-	conditionBar apiv1.ConditionType = "conditionBar"
+	conditionFoo apiv2.ConditionType = "conditionFoo"
+	conditionBar apiv2.ConditionType = "conditionBar"
 )
 
 var _ = Describe("Condition", func() {
@@ -46,7 +46,7 @@ var _ = Describe("Condition", func() {
 
 	BeforeEach(func() {
 		sch := runtime.NewScheme()
-		err = apiv1.AddToScheme(sch)
+		err = apiv2.AddToScheme(sch)
 		Expect(err).NotTo(HaveOccurred())
 		cl = fake.NewClientBuilder().WithScheme(sch).Build()
 	})
@@ -75,7 +75,7 @@ var _ = Describe("Condition", func() {
 	})
 
 	Describe("Get/Set", func() {
-		var operatorCond *apiv1.OperatorCondition
+		var operatorCond *apiv2.OperatorCondition
 
 		objKey := types.NamespacedName{
 			Name:      "operator-condition-test",
@@ -83,9 +83,9 @@ var _ = Describe("Condition", func() {
 		}
 
 		BeforeEach(func() {
-			operatorCond = &apiv1.OperatorCondition{
+			operatorCond = &apiv2.OperatorCondition{
 				ObjectMeta: metav1.ObjectMeta{Name: "operator-condition-test", Namespace: ns},
-				Status: apiv1.OperatorConditionStatus{
+				Spec: apiv2.OperatorConditionSpec{
 					Conditions: []metav1.Condition{
 						{
 							Type:               string(conditionFoo),
@@ -107,7 +107,7 @@ var _ = Describe("Condition", func() {
 
 			// create a new client
 			sch := runtime.NewScheme()
-			err = apiv1.AddToScheme(sch)
+			err = apiv2.AddToScheme(sch)
 			Expect(err).NotTo(HaveOccurred())
 			cl = fake.NewClientBuilder().WithScheme(sch).Build()
 
@@ -171,12 +171,12 @@ var _ = Describe("Condition", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("fetching the condition from cluster")
-				op := &apiv1.OperatorCondition{}
+				op := &apiv2.OperatorCondition{}
 				err = cl.Get(ctx, objKey, op)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("checking if the condition has been updated")
-				res := op.Status.Conditions[0]
+				res := op.Spec.Conditions[0]
 				Expect(res.Message).To(BeEquivalentTo("test"))
 				Expect(res.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 				Expect(res.Reason).To(BeEquivalentTo("not_in_foo_state"))
@@ -190,12 +190,12 @@ var _ = Describe("Condition", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("fetching the condition from cluster")
-				op := &apiv1.OperatorCondition{}
+				op := &apiv2.OperatorCondition{}
 				err = cl.Get(ctx, objKey, op)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("checking if the condition has been updated")
-				res := op.Status.Conditions
+				res := op.Spec.Conditions
 				Expect(len(res)).To(BeEquivalentTo(2))
 				Expect(meta.IsStatusConditionTrue(res, string(conditionBar))).To(BeTrue())
 			})

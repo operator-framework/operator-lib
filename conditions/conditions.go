@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	apiv1 "github.com/operator-framework/api/pkg/operators/v1"
+	apiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	"github.com/operator-framework/operator-lib/internal/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +46,7 @@ const (
 // conditionType in the OperatorCondition CR.
 type condition struct {
 	namespacedName types.NamespacedName
-	condType       apiv1.ConditionType
+	condType       apiv2.ConditionType
 	client         client.Client
 }
 
@@ -55,7 +55,7 @@ var _ Condition = &condition{}
 // NewCondition returns a new Condition interface using the provided client
 // for the specified conditionType. The condition will internally fetch the namespacedName
 // of the operatorConditionCRD.
-func NewCondition(cl client.Client, condType apiv1.ConditionType) (Condition, error) {
+func NewCondition(cl client.Client, condType apiv2.ConditionType) (Condition, error) {
 	objKey, err := GetNamespacedName()
 	if err != nil {
 		return nil, err
@@ -69,12 +69,12 @@ func NewCondition(cl client.Client, condType apiv1.ConditionType) (Condition, er
 
 // Get implements conditions.Get
 func (c *condition) Get(ctx context.Context) (*metav1.Condition, error) {
-	operatorCond := &apiv1.OperatorCondition{}
+	operatorCond := &apiv2.OperatorCondition{}
 	err := c.client.Get(ctx, c.namespacedName, operatorCond)
 	if err != nil {
 		return nil, ErrNoOperatorCondition
 	}
-	con := meta.FindStatusCondition(operatorCond.Status.Conditions, string(c.condType))
+	con := meta.FindStatusCondition(operatorCond.Spec.Conditions, string(c.condType))
 
 	if con == nil {
 		return nil, fmt.Errorf("conditionType %v not found", c.condType)
@@ -84,7 +84,7 @@ func (c *condition) Get(ctx context.Context) (*metav1.Condition, error) {
 
 // Set implements conditions.Set
 func (c *condition) Set(ctx context.Context, status metav1.ConditionStatus, option ...Option) error {
-	operatorCond := &apiv1.OperatorCondition{}
+	operatorCond := &apiv2.OperatorCondition{}
 	err := c.client.Get(ctx, c.namespacedName, operatorCond)
 	if err != nil {
 		return ErrNoOperatorCondition
@@ -100,7 +100,7 @@ func (c *condition) Set(ctx context.Context, status metav1.ConditionStatus, opti
 			opt(newCond)
 		}
 	}
-	meta.SetStatusCondition(&operatorCond.Status.Conditions, *newCond)
+	meta.SetStatusCondition(&operatorCond.Spec.Conditions, *newCond)
 	err = c.client.Status().Update(ctx, operatorCond)
 	if err != nil {
 		return err
