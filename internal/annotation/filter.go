@@ -15,7 +15,7 @@
 // Package annotation contains event handler and predicate builders for annotations.
 // There are two types of builders:
 //
-// - Falsy builders result in objects not being queued if the annotation is not present OR contains a falsy value.
+// - Falsy builders result in objects being queued if the annotation is not present OR contains a falsy value.
 // - Truthy builders are the falsy complement: objects will be enqueued if the annotation is present AND contains a truthy value.
 //
 // Truthiness/falsiness is determined by Go's strconv.ParseBool().
@@ -51,7 +51,7 @@ func NewFalsyPredicate(key string, opts Options) (predicate.Predicate, error) {
 	return newFilter(key, opts)
 }
 
-// NewFalsyEventHandler returns an event handler that adds objects to a queue
+// NewFalsyEventHandler returns an event handler that enqueues objects
 // that do not have annotation with key string key or whose value is falsy.
 func NewFalsyEventHandler(key string, opts Options) (handler.EventHandler, error) {
 	opts.truthy = false
@@ -65,7 +65,7 @@ func NewTruthyPredicate(key string, opts Options) (predicate.Predicate, error) {
 	return newFilter(key, opts)
 }
 
-// NewTruthyEventHandler returns an event handler that adds objects to a queue
+// NewTruthyEventHandler returns an event handler that enqueues objects
 // that do have annotation with key string key and whose value is truthy.
 func NewTruthyEventHandler(key string, opts Options) (handler.EventHandler, error) {
 	opts.truthy = true

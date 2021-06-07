@@ -24,6 +24,13 @@ import (
 // When an annotation with key string key is present on an object and has a truthy value, ex. "true",
 // the watch constructed with this event handler will not add events for that object to the queue.
 // Key string key must be a valid annotation key.
+//
+// A note on security: since users that can CRUD a particular API can apply or remove annotations with
+// default cluster admission controllers, this same set of users can therefore start or stop reconciliation
+// of objects via this pause mechanism. If this is a concern, configure an admission webhook to enforce
+// a stricter annotation modification policy. See AdmissionReview configuration for user info available
+// to a webhook:
+// https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#request
 func NewPause(key string) (handler.EventHandler, error) {
 	return annotation.NewFalsyEventHandler(key, annotation.Options{Log: log})
 }
