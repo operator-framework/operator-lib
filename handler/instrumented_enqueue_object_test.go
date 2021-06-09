@@ -154,15 +154,8 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			instance.Update(evt, q)
 
 			// verify workqueue
-			Expect(q.Len()).To(Equal(2))
+			Expect(q.Len()).To(Equal(1))
 			i, _ := q.Get()
-			Expect(i).To(Equal(reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: pod.Namespace,
-					Name:      pod.Name,
-				},
-			}))
-			i, _ = q.Get()
 			Expect(i).To(Equal(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: newpod.Namespace,
