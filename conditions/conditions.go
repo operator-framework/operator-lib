@@ -28,10 +28,6 @@ import (
 )
 
 var (
-	// ErrNoOperatorCondition indicates that the operator condition CRD is nil
-	// Depreciated
-	ErrNoOperatorCondition = fmt.Errorf("operator Condition CRD is nil")
-
 	// readNamespace gets the namespacedName of the operator.
 	readNamespace = utils.GetOperatorNamespace
 )
