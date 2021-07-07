@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	apiv2 "github.com/operator-framework/api/pkg/operators/v2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,7 +157,7 @@ var _ = Describe("Condition", func() {
 				Expect(err).NotTo(HaveOccurred())
 				con, err := c.Get(ctx)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ErrNoOperatorCondition))
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 				Expect(con).To(BeNil())
 			})
 
@@ -208,7 +209,7 @@ var _ = Describe("Condition", func() {
 				Expect(err).NotTo(HaveOccurred())
 				err = c.Set(ctx, metav1.ConditionTrue, WithReason("in_bar_state"), WithMessage("test"))
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ErrNoOperatorCondition))
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
 
 		})

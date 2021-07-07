@@ -29,6 +29,7 @@ import (
 
 var (
 	// ErrNoOperatorCondition indicates that the operator condition CRD is nil
+	// Depreciated
 	ErrNoOperatorCondition = fmt.Errorf("operator Condition CRD is nil")
 
 	// readNamespace gets the namespacedName of the operator.
@@ -72,7 +73,7 @@ func (c *condition) Get(ctx context.Context) (*metav1.Condition, error) {
 	operatorCond := &apiv2.OperatorCondition{}
 	err := c.client.Get(ctx, c.namespacedName, operatorCond)
 	if err != nil {
-		return nil, ErrNoOperatorCondition
+		return nil, err
 	}
 	con := meta.FindStatusCondition(operatorCond.Spec.Conditions, string(c.condType))
 
@@ -87,7 +88,7 @@ func (c *condition) Set(ctx context.Context, status metav1.ConditionStatus, opti
 	operatorCond := &apiv2.OperatorCondition{}
 	err := c.client.Get(ctx, c.namespacedName, operatorCond)
 	if err != nil {
-		return ErrNoOperatorCondition
+		return err
 	}
 
 	newCond := &metav1.Condition{
