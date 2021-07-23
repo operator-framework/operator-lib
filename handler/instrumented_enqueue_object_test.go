@@ -15,24 +15,28 @@
 package handler
 
 import (
+	"github.com/operator-framework/operator-lib/handler/internal/metrics"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"k8s.io/client-go/util/workqueue"
 )
 
 var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	var q workqueue.RateLimitingInterface
 	var instance InstrumentedEnqueueRequestForObject
 	var pod *corev1.Pod
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(metrics.ResourceCreatedAt)
 
 	BeforeEach(func() {
 		q = controllertest.Queue{Interface: workqueue.New()}
@@ -69,7 +73,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			}))
 
 			// verify metrics
-			gauges, err := metrics.Registry.Gather()
+			gauges, err := registry.Gather()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(gauges)).To(Equal(1))
 			assertMetrics(gauges[0], 1, []*corev1.Pod{pod})
@@ -104,7 +108,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				}))
 
 				// verify metrics
-				gauges, err := metrics.Registry.Gather()
+				gauges, err := registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(gauges)).To(Equal(0))
 			})
@@ -129,7 +133,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				}))
 
 				// verify metrics
-				gauges, err := metrics.Registry.Gather()
+				gauges, err := registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(gauges)).To(Equal(0))
 			})
@@ -164,7 +168,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			}))
 
 			// verify metrics
-			gauges, err := metrics.Registry.Gather()
+			gauges, err := registry.Gather()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(gauges)).To(Equal(1))
 			assertMetrics(gauges[0], 2, []*corev1.Pod{newpod, pod})

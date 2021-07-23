@@ -3,6 +3,7 @@ module github.com/operator-framework/operator-lib
 go 1.15
 
 require (
+	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/operator-framework/api v0.10.0
