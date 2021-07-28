@@ -98,7 +98,7 @@ func (c *condition) Set(ctx context.Context, status metav1.ConditionStatus, opti
 		}
 	}
 	meta.SetStatusCondition(&operatorCond.Spec.Conditions, *newCond)
-	err = c.client.Status().Update(ctx, operatorCond)
+	err = c.client.Update(ctx, operatorCond)
 	if err != nil {
 		return err
 	}
