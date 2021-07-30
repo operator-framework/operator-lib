@@ -9,6 +9,7 @@ require (
 	github.com/operator-framework/api v0.10.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
+	go.uber.org/zap v1.17.0
 	k8s.io/api v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1

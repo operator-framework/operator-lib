@@ -15,22 +15,13 @@
 package jobharvest
 
 import (
-	"k8s.io/client-go/kubernetes"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-// NewControllerClientGo returns a controller with a Harvester registered for each opt in opts.
-// TODO(estroz): flesh this out.
-func NewControllerClientGo(k8sClient kubernetes.Interface, opts ...*HarvesterOptions) (HarvestController, error) {
-	hc := &harvestController{
-		k8sClient: k8sClient,
-		hrvs:      make(harvesters),
-	}
-
-	for _, opt := range opts {
-		if _, err := hc.Create(opt); err != nil {
-			return nil, err
-		}
-	}
-
-	return hc, nil
+func TestJobHarvest(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "JobHarvest Suite")
 }
