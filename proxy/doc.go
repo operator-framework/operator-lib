@@ -30,5 +30,4 @@ variables in the Container Envs that must use the proxy, For example:
 		cSpec.Env = append(defaultEnv(), ReadProxyVarsFromEnv())
 	}
 */
-
 package proxy
