@@ -24,7 +24,7 @@ import (
 // ProxyEnvNames are standard environment variables for proxies
 var ProxyEnvNames = []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 
-// ReadProxyVarssFromEnv retrieves the standard proxy-related environment
+// ReadProxyVarsFromEnv retrieves the standard proxy-related environment
 // variables from the running environment and returns a slice of corev1 EnvVar
 // containing upper and lower case versions of those variables.
 func ReadProxyVarsFromEnv() []corev1.EnvVar {
