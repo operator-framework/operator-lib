@@ -36,23 +36,24 @@ func checkValueFromEnvObj(name string, envVars []corev1.EnvVar) (string, error) 
 
 var _ = Describe("Retrieving", func() {
 	Describe("proxy environment variables", func() {
-		// TODO(asmacdo) seems like a bad idea to mess with the env
-		BeforeEach(func() {
+		It("returns a slice of environment variables that were set", func() {
 			os.Setenv("HTTPS_PROXY", "https_proxy_test")
-			// 	os.Setenv("HTTP_PROXY", "http_proxy_test")
-			// 	os.Setenv("NO_PROXY", "no_proxy_test")
-		})
-		It("returns a slice of environment variables", func() {
+			os.Setenv("HTTP_PROXY", "http_proxy_test")
+			os.Setenv("NO_PROXY", "no_proxy_test")
 			envVars := ReadProxyVarsFromEnv()
 			Expect(len(envVars)).To(Equal(6))
 		})
-		It("creates upper and lower case environment variables with the same value", func() {
+		It("does not return unset variables", func() {
 			envVars := ReadProxyVarsFromEnv()
-			// dumb, err := checkValueFromEnvObj("HTTPS_PROXY", envVars)
-			// Expect(err).To(BeNil())
-			// Expect(dumb).To(Equal("https_proxy_test"))
+			Expect(len(envVars)).To(Equal(0))
+		})
 
-			// Kinda dumb test if they are all empty string
+		It("creates upper and lower case environment variables with the same value", func() {
+			os.Setenv("HTTPS_PROXY", "https_proxy_test")
+			os.Setenv("HTTP_PROXY", "http_proxy_test")
+			os.Setenv("NO_PROXY", "no_proxy_test")
+			envVars := ReadProxyVarsFromEnv()
+
 			for _, envName := range ProxyEnvNames {
 				upperValue, err := checkValueFromEnvObj(envName, envVars)
 				Expect(err).To(BeNil())
@@ -60,6 +61,11 @@ var _ = Describe("Retrieving", func() {
 				Expect(err).To(BeNil())
 				Expect(upperValue).To(Equal(lowerValue))
 			}
+		})
+		AfterEach(func() {
+			_ = os.Unsetenv("HTTPS_PROXY")
+			_ = os.Unsetenv("HTTP_PROXY")
+			_ = os.Unsetenv("NO_PROXY")
 		})
 	})
 })

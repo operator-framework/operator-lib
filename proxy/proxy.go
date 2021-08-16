@@ -30,16 +30,18 @@ var ProxyEnvNames = []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"}
 func ReadProxyVarsFromEnv() []corev1.EnvVar {
 	envVars := []corev1.EnvVar{}
 	for _, s := range ProxyEnvNames {
-		value := os.Getenv(s)
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  s,
-			Value: value,
-		})
-		// Duplicate values for upper and lower case
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  strings.ToLower(s),
-			Value: value,
-		})
+		value, isSet := os.LookupEnv(s)
+		if isSet {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  s,
+				Value: value,
+			})
+			// Duplicate values for upper and lower case
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  strings.ToLower(s),
+				Value: value,
+			})
+		}
 	}
 	return envVars
 }
