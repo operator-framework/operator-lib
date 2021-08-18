@@ -35,9 +35,7 @@ func ReadProxyVarsFromEnv() []corev1.EnvVar {
 			envVars = append(envVars, corev1.EnvVar{
 				Name:  s,
 				Value: value,
-			})
-			// Duplicate values for upper and lower case
-			envVars = append(envVars, corev1.EnvVar{
+			}, corev1.EnvVar{
 				Name:  strings.ToLower(s),
 				Value: value,
 			})
