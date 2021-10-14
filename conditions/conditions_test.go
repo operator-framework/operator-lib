@@ -32,48 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const (
-	conditionFoo apiv2.ConditionType = "conditionFoo"
-	conditionBar apiv2.ConditionType = "conditionBar"
-)
-
 var _ = Describe("Condition", func() {
 	var ns = "default"
 	ctx := context.TODO()
 	var clock kubeclock.Clock = &kubeclock.RealClock{}
-	var transitionTime metav1.Time = metav1.Time{Time: clock.Now()}
+	var transitionTime = metav1.Time{Time: clock.Now()}
 	var cl client.Client
-	var err error
-
-	BeforeEach(func() {
-		sch := runtime.NewScheme()
-		err = apiv2.AddToScheme(sch)
-		Expect(err).NotTo(HaveOccurred())
-		cl = fake.NewClientBuilder().WithScheme(sch).Build()
-	})
-
-	Describe("NewCondition", func() {
-		It("should create a new condition", func() {
-			err := os.Setenv(operatorCondEnvVar, "test-operator-condition")
-			Expect(err).NotTo(HaveOccurred())
-			readNamespace = func() (string, error) {
-				return ns, nil
-			}
-
-			c, err := NewCondition(cl, conditionFoo)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(c).NotTo(BeNil())
-		})
-
-		It("should error when namespacedName cannot be found", func() {
-			err := os.Unsetenv(operatorCondEnvVar)
-			Expect(err).NotTo(HaveOccurred())
-
-			c, err := NewCondition(cl, conditionFoo)
-			Expect(err).To(HaveOccurred())
-			Expect(c).To(BeNil())
-		})
-	})
 
 	Describe("Get/Set", func() {
 		var operatorCond *apiv2.OperatorCondition
@@ -160,7 +124,6 @@ var _ = Describe("Condition", func() {
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 				Expect(con).To(BeNil())
 			})
-
 		})
 
 		Context("Set", func() {
@@ -211,53 +174,6 @@ var _ = Describe("Condition", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
-
-		})
-
-	})
-
-	Describe("GetNamespacedName", func() {
-		It("should error when name of the operator condition cannot be found", func() {
-			err := os.Unsetenv(operatorCondEnvVar)
-			Expect(err).NotTo(HaveOccurred())
-
-			objKey, err := GetNamespacedName()
-			Expect(err).To(HaveOccurred())
-			Expect(objKey).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("could not determine operator condition name"))
-		})
-
-		It("should error when object namespace cannot be found", func() {
-			err := os.Setenv(operatorCondEnvVar, "test")
-			Expect(err).NotTo(HaveOccurred())
-
-			readNamespace = func() (string, error) {
-				return "", os.ErrNotExist
-			}
-
-			objKey, err := GetNamespacedName()
-			Expect(err).To(HaveOccurred())
-			Expect(objKey).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("could not determine operator namespace"))
-		})
-
-		It("should return the right namespaced name from SA namespace file", func() {
-			err := os.Setenv(operatorCondEnvVar, "test")
-			Expect(err).NotTo(HaveOccurred())
-
-			readNamespace = func() (string, error) {
-				return "testns", nil
-			}
-			objKey, err := GetNamespacedName()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(objKey).NotTo(BeNil())
-			Expect(objKey.Name).To(BeEquivalentTo("test"))
-			Expect(objKey.Namespace).To(BeEquivalentTo("testns"))
 		})
 	})
 })
-
-func deleteCondition(ctx context.Context, client client.Client, obj client.Object) {
-	err := client.Delete(ctx, obj)
-	Expect(err).NotTo(HaveOccurred())
-}
