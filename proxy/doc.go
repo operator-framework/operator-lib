@@ -26,8 +26,8 @@ reconcile functions, Operator authors are then responsible for setting these
 variables in the Container Envs that must use the proxy, For example:
 
 	// Pods with Kubernetes < 1.22
-	for _, cSpec := range (myPod.Spec.Containers) {
-		cSpec.Env = append(defaultEnv(), ReadProxyVarsFromEnv())
+	for i, cSpec := range (myPod.Spec.Containers) {
+		myPod.Spec.Containers[i].Env = append(cSpec.Env, ReadProxyVarsFromEnv()...)
 	}
 */
 package proxy
