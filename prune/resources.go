@@ -32,7 +32,7 @@ type ResourceInfo struct {
 	StartTime time.Time
 }
 
-func (config Config) GetSucceededPods() (resources []ResourceInfo, err error) {
+func (config Config) getSucceededPods() (resources []ResourceInfo, err error) {
 
 	listOptions := metav1.ListOptions{LabelSelector: config.LabelSelector}
 	for n := 0; n < len(config.Namespaces); n++ {

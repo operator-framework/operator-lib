@@ -16,306 +16,175 @@ package prune
 
 import (
 	"context"
-	"errors"
-	"os"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"k8s.io/client-go/kubernetes"
+	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 var _ = Describe("Prune", func() {
 
-	Describe("Become", func() {
+	Describe("config validation", func() {
+		BeforeEach(func() {
+
+		})
+		It("should return an error when LabelSelector is not set", func() {
+			cfg := Config{}
+			err := cfg.Execute()
+			Expect(err).ShouldNot(BeNil())
+		})
+		It("should return an error is Namespaces is empty", func() {
+			cfg := Config{}
+			cfg.LabelSelector = "app=churro"
+			err := cfg.Execute()
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+	Describe("test maxCount strategy", func() {
 		var (
-			client crclient.Client
+			client kubernetes.Interface
+			cfg    Config
 		)
 		BeforeEach(func() {
-			client = fake.NewClientBuilder().WithObjects(
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "leader-test",
-						Namespace: "testns",
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: "v1",
-								Kind:       "Pod",
-								Name:       "leader-test",
-							},
-						},
-					},
+			client = testclient.NewSimpleClientset()
+
+			cfg = Config{
+				Ctx:           context.Background(),
+				DryRun:        false,
+				Clientset:     client,
+				LabelSelector: "app=churro",
+				Resources:     []ResourceKind{PodKind},
+				Namespaces:    []string{"default"},
+				Strategy: StrategyConfig{
+					//Mode: MaxAgeStrategy,
+					Mode: MaxCountStrategy,
+					//MaxAgeSetting: "30m",
+					MaxCountSetting: 1,
 				},
-				&corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "leader-test",
-						Namespace: "testns",
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: "v1",
-								Kind:       "Pod",
-								Name:       "leader-test",
-							},
-						},
-					},
-				},
-			).Build()
-		})
-		It("should return an error when POD_NAME is not set", func() {
-			os.Unsetenv("POD_NAME")
-			err := Become(context.TODO(), "leader-test")
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an ErrNoNamespace", func() {
-			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() (string, error) {
-				return "", ErrNoNamespace
-			}
-			err := Become(context.TODO(), "leader-test", WithClient(client))
-			Expect(err).ShouldNot(BeNil())
-			Expect(err).To(Equal(ErrNoNamespace))
-			Expect(errors.Is(err, ErrNoNamespace)).To(Equal(true))
-		})
-		It("should not return an error", func() {
-			os.Setenv("POD_NAME", "leader-test")
-			readNamespace = func() (string, error) {
-				return "testns", nil
+				PreDeleteHook: myhook,
 			}
 
-			err := Become(context.TODO(), "leader-test", WithClient(client))
+			_ = createTestPods(client)
+		})
+		It("test maxCount strategy", func() {
+			err := cfg.Execute()
 			Expect(err).Should(BeNil())
-		})
-	})
-	Describe("isPodEvicted", func() {
-		var (
-			leaderPod *corev1.Pod
-		)
-		BeforeEach(func() {
-			leaderPod = &corev1.Pod{}
-		})
-		It("should return false with an empty status", func() {
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
-		})
-		It("should return false if reason is incorrect", func() {
-			leaderPod.Status.Phase = corev1.PodFailed
-			leaderPod.Status.Reason = "invalid"
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
-		})
-		It("should return false if pod is in the wrong phase", func() {
-			leaderPod.Status.Phase = corev1.PodRunning
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
-		})
-		It("should return true when Phase and Reason are set", func() {
-			leaderPod.Status.Phase = corev1.PodFailed
-			leaderPod.Status.Reason = "Evicted"
-			Expect(isPodEvicted(*leaderPod)).To(Equal(true))
-		})
-	})
-	Describe("myOwnerRef", func() {
-		var (
-			client crclient.Client
-		)
-		BeforeEach(func() {
-			client = fake.NewClientBuilder().WithObjects(
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "mypod",
-						Namespace: "testns",
-					},
-				},
-			).Build()
-		})
-		It("should return an error when POD_NAME is not set", func() {
-			os.Unsetenv("POD_NAME")
-			_, err := myOwnerRef(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an error if no pod is found", func() {
-			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
-			_, err := myOwnerRef(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return the owner reference without error", func() {
-			os.Setenv("POD_NAME", "mypod")
-			owner, err := myOwnerRef(context.TODO(), client, "testns")
+			var pods []ResourceInfo
+			pods, err = cfg.getSucceededPods()
 			Expect(err).Should(BeNil())
-			Expect(owner.APIVersion).To(Equal("v1"))
-			Expect(owner.Kind).To(Equal("Pod"))
-			Expect(owner.Name).To(Equal("mypod"))
+			Expect(len(pods)).To(Equal(1))
 		})
-	})
-	Describe("getPod", func() {
-		var (
-			client crclient.Client
-		)
-		BeforeEach(func() {
-			client = fake.NewClientBuilder().WithObjects(
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "mypod",
-						Namespace: "testns",
-					},
-				},
-			).Build()
-		})
-		It("should return an error when POD_NAME is not set", func() {
-			os.Unsetenv("POD_NAME")
-			_, err := getPod(context.TODO(), nil, "")
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an error if no pod is found", func() {
-			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
-			_, err := getPod(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return the pod with the given name", func() {
-			os.Setenv("POD_NAME", "mypod")
-			pod, err := getPod(context.TODO(), client, "testns")
+		It("test maxAge strategy", func() {
+			cfg.Strategy.Mode = MaxAgeStrategy
+			cfg.Strategy.MaxAgeSetting = "3h"
+			err := cfg.Execute()
 			Expect(err).Should(BeNil())
-			Expect(pod).ShouldNot(BeNil())
-			Expect(pod.TypeMeta.APIVersion).To(Equal("v1"))
-			Expect(pod.TypeMeta.Kind).To(Equal("Pod"))
-		})
-	})
-
-	Describe("getNode", func() {
-		var (
-			client crclient.Client
-		)
-		BeforeEach(func() {
-			client = fake.NewClientBuilder().WithObjects(
-				&corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "mynode",
-					},
-				},
-			).Build()
-		})
-		It("should return an error if no node is found", func() {
-			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "", &node)
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return the node with the given name", func() {
-			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "mynode", &node)
+			var pods []ResourceInfo
+			pods, err = cfg.getSucceededPods()
 			Expect(err).Should(BeNil())
-			Expect(node.TypeMeta.APIVersion).To(Equal("v1"))
-			Expect(node.TypeMeta.Kind).To(Equal("Node"))
+			Expect(len(pods)).To(Equal(2))
 		})
-	})
-
-	Describe("isNotReadyNode", func() {
-		var (
-			nodeName string
-			node     *corev1.Node
-			client   crclient.Client
-		)
-		BeforeEach(func() {
-			nodeName = "mynode"
-			node = &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-				},
-				Status: corev1.NodeStatus{
-					Conditions: make([]corev1.NodeCondition, 1),
-				},
-			}
-		})
-
-		It("should return false if node is invalid", func() {
-			client = fake.NewClientBuilder().WithObjects().Build()
-			ret := isNotReadyNode(context.TODO(), client, "")
-			Expect(ret).To(Equal(false))
-		})
-		It("should return false if no NodeCondition is found", func() {
-			client = fake.NewClientBuilder().WithObjects(node).Build()
-			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
-		})
-		It("should return false if type is incorrect", func() {
-			node.Status.Conditions[0].Type = corev1.NodeMemoryPressure
-			node.Status.Conditions[0].Status = corev1.ConditionFalse
-			client = fake.NewClientBuilder().WithObjects(node).Build()
-			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
-		})
-		It("should return false if NodeReady's type is true", func() {
-			node.Status.Conditions[0].Type = corev1.NodeReady
-			node.Status.Conditions[0].Status = corev1.ConditionTrue
-			client = fake.NewClientBuilder().WithObjects(node).Build()
-			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
-		})
-		It("should return true when Type is set and Status is set to false", func() {
-			node.Status.Conditions[0].Type = corev1.NodeReady
-			node.Status.Conditions[0].Status = corev1.ConditionFalse
-			client = fake.NewClientBuilder().WithObjects(node).Build()
-			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(true))
-		})
-	})
-	Describe("deleteLeader", func() {
-		var (
-			configmap *corev1.ConfigMap
-			pod       *corev1.Pod
-			client    crclient.Client
-		)
-		BeforeEach(func() {
-			pod = &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "leader-test",
-					Namespace: "testns",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: "v1",
-							Kind:       "Pod",
-							Name:       "leader-test",
-						},
-					},
-				},
-			}
-			configmap = &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "leader-test",
-					Namespace: "testns",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: "v1",
-							Kind:       "Pod",
-							Name:       "leader-test",
-						},
-					},
-				},
-			}
-		})
-		It("should return an error if existing is not found", func() {
-			client = fake.NewClientBuilder().WithObjects(pod).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an error if pod is not found", func() {
-			client = fake.NewClientBuilder().WithObjects(configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an error if pod is nil", func() {
-			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, nil, configmap)
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return an error if configmap is nil", func() {
-			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, nil)
-			Expect(err).ShouldNot(BeNil())
-		})
-		It("should return nil if pod and configmap exists and configmap's owner is the pod", func() {
-			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
+		It("test custom strategy", func() {
+			cfg.Strategy.Mode = CustomStrategy
+			cfg.Strategy.CustomSettings = make(map[string]interface{})
+			cfg.CustomStrategy = myStrategy
+			err := cfg.Execute()
 			Expect(err).Should(BeNil())
+			var pods []ResourceInfo
+			pods, err = cfg.getSucceededPods()
+			Expect(err).Should(BeNil())
+			Expect(len(pods)).To(Equal(3))
 		})
-
 	})
 })
+
+// create 3 pods with different start times (now, 2 days old, 4 days old)
+func createTestPods(client kubernetes.Interface) (err error) {
+	// some defaults
+	ns := "default"
+	labels := make(map[string]string)
+	labels["app"] = "churro"
+
+	// delete any existing pods
+	_ = client.CoreV1().Pods(ns).Delete(context.TODO(), "churro1", metav1.DeleteOptions{})
+	_ = client.CoreV1().Pods(ns).Delete(context.TODO(), "churro2", metav1.DeleteOptions{})
+	_ = client.CoreV1().Pods(ns).Delete(context.TODO(), "churro3", metav1.DeleteOptions{})
+
+	// create 3 pods with different StartTimes
+	now := time.Now() //initial start time
+	startTime := metav1.NewTime(now)
+	p1 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro1",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: v1.PodStatus{
+			Phase:     v1.PodSucceeded,
+			StartTime: &startTime,
+		},
+	}
+	_, err = client.CoreV1().Pods(ns).Create(context.TODO(), p1, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	twoHoursPriorToNow := now.Add(time.Hour * time.Duration(-2))
+	// create start time 2 hours before now
+	startTime = metav1.NewTime(twoHoursPriorToNow)
+	p2 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro2",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: v1.PodStatus{
+			Phase:     v1.PodSucceeded,
+			StartTime: &startTime,
+		},
+	}
+	_, err = client.CoreV1().Pods(ns).Create(context.TODO(), p2, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	// create start time 4 hours before now
+	fourHoursPriorToNow := now.Add(time.Hour * time.Duration(-4))
+	startTime = metav1.NewTime(fourHoursPriorToNow)
+	p3 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro3",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: v1.PodStatus{
+			Phase:     v1.PodSucceeded,
+			StartTime: &startTime,
+		},
+	}
+	_, err = client.CoreV1().Pods(ns).Create(context.TODO(), p3, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func myhook(cfg Config, x ResourceInfo) error {
+	fmt.Printf("myhook is called with resource %v strategy %v\n", x, cfg)
+	return nil
+}
+
+// myStrategy shows how you can write your own strategy, in this
+// example, the strategy doesn't really do another other than count
+// the number of resources
+func myStrategy(cfg Config, resources []ResourceInfo) error {
+	fmt.Printf("myStrategy is called with resources %v config %v\n", resources, cfg)
+	if len(resources) != 3 {
+		return fmt.Errorf("count of resources did not equal our expectation")
+	}
+	return nil
+}

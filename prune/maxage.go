@@ -20,14 +20,14 @@ import (
 
 // maxAge looks for and prunes resources, currently jobs and pods,
 // that exceed a user specified age (e.g. 3d)
-func (config Config) pruneByMaxAge(resources []ResourceInfo) (err error) {
+func pruneByMaxAge(config Config, resources []ResourceInfo) (err error) {
 	log.V(1).Info("maxAge running", "setting", config.Strategy.MaxAgeSetting)
 
 	maxAgeDuration, _ := time.ParseDuration(config.Strategy.MaxAgeSetting)
 	maxAgeTime := time.Now().Add(-maxAgeDuration)
 
 	for i := 0; i < len(resources); i++ {
-		log.V(1).Info("age of pod ", "age", time.Now().Sub(resources[i].StartTime), "maxage", maxAgeTime)
+		log.V(1).Info("age of pod ", "age", time.Since(resources[i].StartTime), "maxage", maxAgeTime)
 		if resources[i].StartTime.Before(maxAgeTime) {
 			log.V(1).Info("pruning ", "kind", resources[i].Kind, "name", resources[i].Name)
 			if !config.DryRun {

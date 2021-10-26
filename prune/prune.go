@@ -35,6 +35,8 @@ type ResourceStatus string
 type Strategy string
 
 const (
+	// CustomStrategy maximum age of a resource that is desired, Duration
+	CustomStrategy Strategy = "Custom"
 	// MaxAgeStrategy maximum age of a resource that is desired, Duration
 	MaxAgeStrategy Strategy = "MaxAge"
 	// MaxCountStrategy maximum number of a resource that is desired, int
@@ -50,11 +52,12 @@ type StrategyConfig struct {
 	Mode            Strategy
 	MaxAgeSetting   string
 	MaxCountSetting int
+	CustomSettings  map[string]interface{}
 }
 
-// PruneStrategyFunction function allows a means to specify
+// StrategyImplementation function allows a means to specify
 // custom prune strategies
-type StrategyImplementation func(resources []ResourceInfo) error
+type StrategyImplementation func(cfg Config, resources []ResourceInfo) error
 
 // PreDelete function is called before a resource is pruned
 type PreDelete func(cfg Config, something ResourceInfo) error
@@ -62,14 +65,15 @@ type PreDelete func(cfg Config, something ResourceInfo) error
 // Config defines a pruning configuration and ultimately
 // determines what will get pruned
 type Config struct {
-	Ctx           context.Context
-	Clientset     kubernetes.Interface
-	LabelSelector string         //selector resources to prune
-	DryRun        bool           //true only performs a check, not removals
-	Resources     []ResourceKind //pods, jobs are supported
-	Namespaces    []string       //empty means all namespaces
-	Strategy      StrategyConfig //strategy for pruning, either age or max
-	PreDeleteHook PreDelete      //called before resource is deleteds
+	Ctx            context.Context
+	Clientset      kubernetes.Interface
+	LabelSelector  string                 //selector resources to prune
+	DryRun         bool                   //true only performs a check, not removals
+	Resources      []ResourceKind         //pods, jobs are supported
+	Namespaces     []string               //empty means all namespaces
+	Strategy       StrategyConfig         //strategy for pruning, either age or max
+	CustomStrategy StrategyImplementation //custom strategy
+	PreDeleteHook  PreDelete              //called before resource is deleteds
 }
 
 var log = logf.Log.WithName("prune")
@@ -86,7 +90,7 @@ func (config Config) Execute() error {
 
 	// get a sorted list, by StartTime,  of pods and jobs
 	if contains(config.Resources, PodKind) {
-		podList, err := config.GetSucceededPods()
+		podList, err := config.getSucceededPods()
 		if err != nil {
 			return err
 		}
@@ -95,12 +99,17 @@ func (config Config) Execute() error {
 
 		switch config.Strategy.Mode {
 		case MaxAgeStrategy:
-			err = config.pruneByMaxAge(podList)
+			err = pruneByMaxAge(config, podList)
 			if err != nil {
 				return err
 			}
 		case MaxCountStrategy:
-			err = config.pruneByMaxCount(podList)
+			err = pruneByMaxCount(config, podList)
+			if err != nil {
+				return err
+			}
+		case CustomStrategy:
+			err = config.CustomStrategy(config, podList)
 			if err != nil {
 				return err
 			}
@@ -116,12 +125,12 @@ func (config Config) Execute() error {
 		log.V(1).Info("jobs count", len(jobList))
 		switch config.Strategy.Mode {
 		case MaxAgeStrategy:
-			err = config.pruneByMaxAge(jobList)
+			err = pruneByMaxAge(config, jobList)
 			if err != nil {
 				return err
 			}
 		case MaxCountStrategy:
-			err = config.pruneByMaxCount(jobList)
+			err = pruneByMaxCount(config, jobList)
 			if err != nil {
 				return err
 			}

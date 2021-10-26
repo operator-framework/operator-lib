@@ -21,7 +21,7 @@ import (
 // pruneByMaxCount looks for and prunes resources, currently jobs and pods,
 // that exceed a user specified count (e.g. 3), the oldest resources
 // are pruned
-func (config Config) pruneByMaxCount(resources []ResourceInfo) (err error) {
+func pruneByMaxCount(config Config, resources []ResourceInfo) (err error) {
 	log.V(1).Info("pruneByMaxCount running ", "max count", config.Strategy.MaxCountSetting, "resource count", len(resources))
 
 	if len(resources) > config.Strategy.MaxCountSetting {
