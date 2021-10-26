@@ -88,7 +88,7 @@ func (config Config) getCompletedJobs() (resources []ResourceInfo, err error) {
 					Name:      j.Name,
 					Kind:      JobKind,
 					Namespace: config.Namespaces[n],
-					StartTime: j.Status.StartTime.Time,
+					StartTime: j.Status.CompletionTime.Time,
 				})
 			}
 		}

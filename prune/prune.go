@@ -134,6 +134,11 @@ func (config Config) Execute() error {
 			if err != nil {
 				return err
 			}
+		case CustomStrategy:
+			err = config.CustomStrategy(config, jobList)
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown strategy")
 		}
@@ -166,6 +171,16 @@ func containsString(s []string, str string) bool {
 	return false
 }
 
+// containsName checks if a string is present in a ResourceInfo slice
+func containsName(s []ResourceInfo, str string) bool {
+	for _, v := range s {
+		if v.Name == str {
+			return true
+		}
+	}
+
+	return false
+}
 func (config Config) validate() (err error) {
 	if len(config.Namespaces) == 0 {
 		return fmt.Errorf("namespaces are required")

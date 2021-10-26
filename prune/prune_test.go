@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -45,7 +46,7 @@ var _ = Describe("Prune", func() {
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
-	Describe("test maxCount strategy", func() {
+	Describe("test pods", func() {
 		var (
 			client kubernetes.Interface
 			cfg    Config
@@ -69,7 +70,7 @@ var _ = Describe("Prune", func() {
 				PreDeleteHook: myhook,
 			}
 
-			_ = createTestPods(client)
+			_ = createTestResources(client)
 		})
 		It("test maxCount strategy", func() {
 			err := cfg.Execute()
@@ -78,6 +79,7 @@ var _ = Describe("Prune", func() {
 			pods, err = cfg.getSucceededPods()
 			Expect(err).Should(BeNil())
 			Expect(len(pods)).To(Equal(1))
+			Expect(containsName(pods, "churro1")).To(Equal(true))
 		})
 		It("test maxAge strategy", func() {
 			cfg.Strategy.Mode = MaxAgeStrategy
@@ -87,7 +89,8 @@ var _ = Describe("Prune", func() {
 			var pods []ResourceInfo
 			pods, err = cfg.getSucceededPods()
 			Expect(err).Should(BeNil())
-			Expect(len(pods)).To(Equal(2))
+			Expect(containsName(pods, "churro1")).To(Equal(true))
+			Expect(containsName(pods, "churro2")).To(Equal(true))
 		})
 		It("test custom strategy", func() {
 			cfg.Strategy.Mode = CustomStrategy
@@ -101,10 +104,68 @@ var _ = Describe("Prune", func() {
 			Expect(len(pods)).To(Equal(3))
 		})
 	})
+	Describe("test jobs", func() {
+		var (
+			client kubernetes.Interface
+			cfg    Config
+		)
+		BeforeEach(func() {
+			client = testclient.NewSimpleClientset()
+
+			cfg = Config{
+				Ctx:           context.Background(),
+				DryRun:        false,
+				Clientset:     client,
+				LabelSelector: "app=churro",
+				Resources:     []ResourceKind{JobKind},
+				Namespaces:    []string{"default"},
+				Strategy: StrategyConfig{
+					//Mode: MaxAgeStrategy,
+					Mode: MaxCountStrategy,
+					//MaxAgeSetting: "30m",
+					MaxCountSetting: 1,
+				},
+				PreDeleteHook: myhook,
+			}
+
+			_ = createTestResources(client)
+		})
+		It("test maxCount strategy", func() {
+			err := cfg.Execute()
+			Expect(err).Should(BeNil())
+			var jobs []ResourceInfo
+			jobs, err = cfg.getCompletedJobs()
+			Expect(err).Should(BeNil())
+			Expect(len(jobs)).To(Equal(1))
+			Expect(containsName(jobs, "churro1")).To(Equal(true))
+		})
+		It("test maxAge strategy", func() {
+			cfg.Strategy.Mode = MaxAgeStrategy
+			cfg.Strategy.MaxAgeSetting = "3h"
+			err := cfg.Execute()
+			Expect(err).Should(BeNil())
+			var jobs []ResourceInfo
+			jobs, err = cfg.getCompletedJobs()
+			Expect(err).Should(BeNil())
+			Expect(containsName(jobs, "churro1")).To(Equal(true))
+			Expect(containsName(jobs, "churro2")).To(Equal(true))
+		})
+		It("test custom strategy", func() {
+			cfg.Strategy.Mode = CustomStrategy
+			cfg.Strategy.CustomSettings = make(map[string]interface{})
+			cfg.CustomStrategy = myStrategy
+			err := cfg.Execute()
+			Expect(err).Should(BeNil())
+			var jobs []ResourceInfo
+			jobs, err = cfg.getCompletedJobs()
+			Expect(err).Should(BeNil())
+			Expect(len(jobs)).To(Equal(3))
+		})
+	})
 })
 
-// create 3 pods with different start times (now, 2 days old, 4 days old)
-func createTestPods(client kubernetes.Interface) (err error) {
+// create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
+func createTestResources(client kubernetes.Interface) (err error) {
 	// some defaults
 	ns := "default"
 	labels := make(map[string]string)
@@ -170,11 +231,70 @@ func createTestPods(client kubernetes.Interface) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// delete any existing jobs
+	_ = client.BatchV1().Jobs(ns).Delete(context.TODO(), "churro1", metav1.DeleteOptions{})
+	_ = client.BatchV1().Jobs(ns).Delete(context.TODO(), "churro2", metav1.DeleteOptions{})
+	_ = client.BatchV1().Jobs(ns).Delete(context.TODO(), "churro3", metav1.DeleteOptions{})
+
+	// create 3 jobs with different CompletionTime
+	now = time.Now() //initial start time
+	startTime = metav1.NewTime(now)
+	j1 := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro1",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: batchv1.JobStatus{
+			CompletionTime: &startTime,
+		},
+	}
+	_, err = client.BatchV1().Jobs(ns).Create(context.TODO(), j1, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	twoHoursPriorToNow = now.Add(time.Hour * time.Duration(-2))
+	// create start time 2 hours before now
+	startTime = metav1.NewTime(twoHoursPriorToNow)
+	j2 := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro2",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: batchv1.JobStatus{
+			CompletionTime: &startTime,
+		},
+	}
+	_, err = client.BatchV1().Jobs(ns).Create(context.TODO(), j2, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	// create start time 4 hours before now
+	fourHoursPriorToNow = now.Add(time.Hour * time.Duration(-4))
+	startTime = metav1.NewTime(fourHoursPriorToNow)
+	j3 := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "churro3",
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Status: batchv1.JobStatus{
+			CompletionTime: &startTime,
+		},
+	}
+	_, err = client.BatchV1().Jobs(ns).Create(context.TODO(), j3, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func myhook(cfg Config, x ResourceInfo) error {
-	fmt.Printf("myhook is called with resource %v strategy %v\n", x, cfg)
+	//fmt.Printf("myhook is called with resource %v strategy %v\n", x, cfg)
+	fmt.Println("myhook is called ")
 	return nil
 }
 
