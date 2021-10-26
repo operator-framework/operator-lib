@@ -88,54 +88,37 @@ func (config Config) Execute() error {
 		return err
 	}
 
-	// get a sorted list, by StartTime,  of pods and jobs
-	if contains(config.Resources, PodKind) {
-		podList, err := config.getSucceededPods()
-		if err != nil {
-			return err
-		}
+	for i := 0; i < len(config.Resources); i++ {
+		var resourceList []ResourceInfo
+		var err error
 
-		log.V(1).Info("pods ", "count", len(podList))
+		if config.Resources[i] == PodKind {
+			resourceList, err = config.getSucceededPods()
+			if err != nil {
+				return err
+			}
+			log.V(1).Info("pods ", "count", len(resourceList))
+		} else if config.Resources[i] == JobKind {
+			resourceList, err = config.getCompletedJobs()
+			if err != nil {
+				return err
+			}
+			log.V(1).Info("jobs ", "count", len(resourceList))
+		}
 
 		switch config.Strategy.Mode {
 		case MaxAgeStrategy:
-			err = pruneByMaxAge(config, podList)
+			err = pruneByMaxAge(config, resourceList)
 			if err != nil {
 				return err
 			}
 		case MaxCountStrategy:
-			err = pruneByMaxCount(config, podList)
+			err = pruneByMaxCount(config, resourceList)
 			if err != nil {
 				return err
 			}
 		case CustomStrategy:
-			err = config.CustomStrategy(config, podList)
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unknown strategy")
-		}
-	}
-	if contains(config.Resources, JobKind) {
-		jobList, err := config.getCompletedJobs()
-		if err != nil {
-			return err
-		}
-		log.V(1).Info("jobs count", len(jobList))
-		switch config.Strategy.Mode {
-		case MaxAgeStrategy:
-			err = pruneByMaxAge(config, jobList)
-			if err != nil {
-				return err
-			}
-		case MaxCountStrategy:
-			err = pruneByMaxCount(config, jobList)
-			if err != nil {
-				return err
-			}
-		case CustomStrategy:
-			err = config.CustomStrategy(config, jobList)
+			err = config.CustomStrategy(config, resourceList)
 			if err != nil {
 				return err
 			}
@@ -147,17 +130,6 @@ func (config Config) Execute() error {
 	log.V(1).Info("Prune completed")
 
 	return nil
-}
-
-// contains checks if a ResourceKind is present in a slice
-func contains(s []ResourceKind, str ResourceKind) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
 }
 
 // containsString checks if a string is present in a slice
