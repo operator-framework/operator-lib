@@ -103,6 +103,13 @@ var _ = Describe("Prune", func() {
 			err := cfg.Execute()
 			Expect(err).ShouldNot(BeNil())
 		})
+		It("should return an error when labels dont parse", func() {
+			cfg := Config{}
+			cfg.Namespaces = []string{"one"}
+			cfg.LabelSelector = "-"
+			err := cfg.Execute()
+			Expect(err).ShouldNot(BeNil())
+		})
 	})
 
 	Describe("test jobs", func() {
@@ -302,7 +309,6 @@ func createTestPods(client kubernetes.Interface) (err error) {
 }
 
 func myhook(cfg Config, x ResourceInfo) error {
-	//fmt.Printf("myhook is called with resource %v strategy %v\n", x, cfg)
 	fmt.Println("myhook is called ")
 	return nil
 }

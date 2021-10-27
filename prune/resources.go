@@ -15,7 +15,6 @@
 package prune
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -40,7 +39,6 @@ func (config Config) getSucceededPods() (resources []ResourceInfo, err error) {
 		if err != nil {
 			return resources, err
 		}
-		fmt.Printf("got %d pods\n", len(pods.Items))
 
 		for i := 0; i < len(pods.Items); i++ {
 			p := pods.Items[i]
@@ -79,7 +77,6 @@ func (config Config) getCompletedJobs() (resources []ResourceInfo, err error) {
 		if err != nil {
 			return resources, err
 		}
-		log.V(1).Info("jobs", "count", len(jobs.Items))
 		for i := 0; i < len(jobs.Items); i++ {
 			j := jobs.Items[i]
 			if j.Status.CompletionTime != nil {

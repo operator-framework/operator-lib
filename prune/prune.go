@@ -1,4 +1,4 @@
-// Copyright 2020 The Operator-SDK Authors
+// Copyright 2021 The Operator-SDK Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,8 +65,8 @@ type PreDelete func(cfg Config, something ResourceInfo) error
 // Config defines a pruning configuration and ultimately
 // determines what will get pruned
 type Config struct {
-	Ctx            context.Context
-	Clientset      kubernetes.Interface
+	Ctx            context.Context        //context used by pruning
+	Clientset      kubernetes.Interface   // kube client used by pruning
 	LabelSelector  string                 //selector resources to prune
 	DryRun         bool                   //true only performs a check, not removals
 	Resources      []ResourceKind         //pods, jobs are supported
@@ -154,6 +154,11 @@ func containsName(s []ResourceInfo, str string) bool {
 	return false
 }
 func (config Config) validate() (err error) {
+
+	if config.CustomStrategy == nil && config.Strategy.Mode == CustomStrategy {
+		return fmt.Errorf("custom strategies require a strategy function to be specified")
+	}
+
 	if len(config.Namespaces) == 0 {
 		return fmt.Errorf("namespaces are required")
 	}
