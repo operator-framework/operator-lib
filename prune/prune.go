@@ -19,14 +19,11 @@ import (
 	"fmt"
 	"time"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
-
-// ResourceKind describes the Kubernetes Kind we are wanting to prune
-type ResourceKind string
 
 // ResourceStatus describes the Kubernetes resource status we are evaluating
 type ResourceStatus string
@@ -42,9 +39,9 @@ const (
 	// MaxCountStrategy maximum number of a resource that is desired, int
 	MaxCountStrategy Strategy = "MaxCount"
 	// JobKind equates to a Kube Job resource kind
-	JobKind ResourceKind = "job"
+	JobKind string = "Job"
 	// PodKind equates to a Kube Pod resource kind
-	PodKind ResourceKind = "pod"
+	PodKind string = "Pod"
 )
 
 // StrategyConfig holds settings unique to each pruning mode
@@ -55,9 +52,9 @@ type StrategyConfig struct {
 	CustomSettings  map[string]interface{}
 }
 
-// StrategyImplementation function allows a means to specify
+// StrategyFunc function allows a means to specify
 // custom prune strategies
-type StrategyImplementation func(cfg Config, resources []ResourceInfo) error
+type StrategyFunc func(cfg Config, resources []ResourceInfo) error
 
 // PreDelete function is called before a resource is pruned
 type PreDelete func(cfg Config, something ResourceInfo) error
@@ -65,23 +62,21 @@ type PreDelete func(cfg Config, something ResourceInfo) error
 // Config defines a pruning configuration and ultimately
 // determines what will get pruned
 type Config struct {
-	Ctx            context.Context        //context used by pruning
-	Clientset      kubernetes.Interface   // kube client used by pruning
-	LabelSelector  string                 //selector resources to prune
-	DryRun         bool                   //true only performs a check, not removals
-	Resources      []ResourceKind         //pods, jobs are supported
-	Namespaces     []string               //empty means all namespaces
-	Strategy       StrategyConfig         //strategy for pruning, either age or max
-	CustomStrategy StrategyImplementation //custom strategy
-	PreDeleteHook  PreDelete              //called before resource is deleteds
+	Clientset      kubernetes.Interface      // kube client used by pruning
+	LabelSelector  string                    //selector resources to prune
+	DryRun         bool                      //true only performs a check, not removals
+	Resources      []schema.GroupVersionKind //pods, jobs are supported
+	Namespaces     []string                  //empty means all namespaces
+	Strategy       StrategyConfig            //strategy for pruning, either age or max
+	CustomStrategy StrategyFunc              //custom strategy
+	PreDeleteHook  PreDelete                 //called before resource is deleteds
+	log            logr.Logger
 }
 
-var log = logf.Log.WithName("prune")
-
 // Execute causes the pruning work to be executed based on its configuration
-func (config Config) Execute() error {
+func (config Config) Execute(ctx context.Context) error {
 
-	log.V(1).Info("Execute Prune")
+	config.log.V(1).Info("Execute Prune")
 
 	err := config.validate()
 	if err != nil {
@@ -92,42 +87,36 @@ func (config Config) Execute() error {
 		var resourceList []ResourceInfo
 		var err error
 
-		if config.Resources[i] == PodKind {
-			resourceList, err = config.getSucceededPods()
+		if config.Resources[i].Kind == PodKind {
+			resourceList, err = config.getSucceededPods(ctx)
 			if err != nil {
 				return err
 			}
-			log.V(1).Info("pods ", "count", len(resourceList))
-		} else if config.Resources[i] == JobKind {
-			resourceList, err = config.getCompletedJobs()
+			config.log.V(1).Info("pods ", "count", len(resourceList))
+		} else if config.Resources[i].Kind == JobKind {
+			resourceList, err = config.getCompletedJobs(ctx)
 			if err != nil {
 				return err
 			}
-			log.V(1).Info("jobs ", "count", len(resourceList))
+			config.log.V(1).Info("jobs ", "count", len(resourceList))
 		}
 
 		switch config.Strategy.Mode {
 		case MaxAgeStrategy:
-			err = pruneByMaxAge(config, resourceList)
-			if err != nil {
-				return err
-			}
+			err = pruneByMaxAge(ctx, config, resourceList)
 		case MaxCountStrategy:
-			err = pruneByMaxCount(config, resourceList)
-			if err != nil {
-				return err
-			}
+			err = pruneByMaxCount(ctx, config, resourceList)
 		case CustomStrategy:
 			err = config.CustomStrategy(config, resourceList)
-			if err != nil {
-				return err
-			}
 		default:
 			return fmt.Errorf("unknown strategy")
 		}
+		if err != nil {
+			return err
+		}
 	}
 
-	log.V(1).Info("Prune completed")
+	config.log.V(1).Info("Prune completed")
 
 	return nil
 }

@@ -15,27 +15,29 @@
 package prune
 
 import (
+	"context"
 	"sort"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ResourceInfo describes the Kube resources that we are about to consider
 // when pruning resources
 type ResourceInfo struct {
 	Name      string
-	Kind      ResourceKind
+	GVK       schema.GroupVersionKind
 	Namespace string
 	StartTime time.Time
 }
 
-func (config Config) getSucceededPods() (resources []ResourceInfo, err error) {
+func (config Config) getSucceededPods(ctx context.Context) (resources []ResourceInfo, err error) {
 
 	listOptions := metav1.ListOptions{LabelSelector: config.LabelSelector}
 	for n := 0; n < len(config.Namespaces); n++ {
-		pods, err := config.Clientset.CoreV1().Pods(config.Namespaces[n]).List(config.Ctx, listOptions)
+		pods, err := config.Clientset.CoreV1().Pods(config.Namespaces[n]).List(ctx, listOptions)
 		if err != nil {
 			return resources, err
 		}
@@ -50,8 +52,10 @@ func (config Config) getSucceededPods() (resources []ResourceInfo, err error) {
 			case v1.PodSucceeded:
 				// currently we only care to prune succeeded pods
 				resources = append(resources, ResourceInfo{
-					Name:      p.Name,
-					Kind:      PodKind,
+					Name: p.Name,
+					GVK: schema.GroupVersionKind{
+						Kind: PodKind,
+					},
 					Namespace: config.Namespaces[n],
 					StartTime: p.Status.StartTime.Time,
 				})
@@ -68,12 +72,12 @@ func (config Config) getSucceededPods() (resources []ResourceInfo, err error) {
 	return resources, nil
 }
 
-func (config Config) getCompletedJobs() (resources []ResourceInfo, err error) {
+func (config Config) getCompletedJobs(ctx context.Context) (resources []ResourceInfo, err error) {
 
 	listOptions := metav1.ListOptions{LabelSelector: config.LabelSelector}
 
 	for n := 0; n < len(config.Namespaces); n++ {
-		jobs, err := config.Clientset.BatchV1().Jobs(config.Namespaces[n]).List(config.Ctx, listOptions)
+		jobs, err := config.Clientset.BatchV1().Jobs(config.Namespaces[n]).List(ctx, listOptions)
 		if err != nil {
 			return resources, err
 		}
@@ -82,8 +86,10 @@ func (config Config) getCompletedJobs() (resources []ResourceInfo, err error) {
 			if j.Status.CompletionTime != nil {
 				// currently we only care to prune succeeded pods
 				resources = append(resources, ResourceInfo{
-					Name:      j.Name,
-					Kind:      JobKind,
+					Name: j.Name,
+					GVK: schema.GroupVersionKind{
+						Kind: JobKind,
+					},
 					Namespace: config.Namespaces[n],
 					StartTime: j.Status.CompletionTime.Time,
 				})

@@ -15,10 +15,17 @@
 package prune
 
 import (
+	"context"
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (config Config) removeResource(resource ResourceInfo) (err error) {
+func (config Config) removeResource(ctx context.Context, resource ResourceInfo) (err error) {
+
+	if config.DryRun {
+		return nil
+	}
 
 	if config.PreDeleteHook != nil {
 		err = config.PreDeleteHook(config, resource)
@@ -27,17 +34,19 @@ func (config Config) removeResource(resource ResourceInfo) (err error) {
 		}
 	}
 
-	switch resource.Kind {
+	switch resource.GVK.Kind {
 	case PodKind:
-		err := config.Clientset.CoreV1().Pods(resource.Namespace).Delete(config.Ctx, resource.Name, metav1.DeleteOptions{})
+		err := config.Clientset.CoreV1().Pods(resource.Namespace).Delete(ctx, resource.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
 	case JobKind:
-		err := config.Clientset.BatchV1().Jobs(resource.Namespace).Delete(config.Ctx, resource.Name, metav1.DeleteOptions{})
+		err := config.Clientset.BatchV1().Jobs(resource.Namespace).Delete(ctx, resource.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("unsupported resource kind")
 	}
 
 	return nil

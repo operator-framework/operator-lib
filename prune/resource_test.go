@@ -24,8 +24,10 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	testclient "k8s.io/client-go/kubernetes/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("Prune", func() {
@@ -33,21 +35,22 @@ var _ = Describe("Prune", func() {
 		var (
 			client kubernetes.Interface
 			cfg    Config
+			ctx    context.Context
 		)
 		BeforeEach(func() {
 			client = testclient.NewSimpleClientset()
-
+			ctx = context.Background()
 			cfg = Config{
-				Ctx:           context.Background(),
+				log:           logf.Log.WithName("prune"),
 				DryRun:        false,
 				Clientset:     client,
 				LabelSelector: "app=churro",
-				Resources:     []ResourceKind{PodKind},
-				Namespaces:    []string{"default"},
+				Resources: []schema.GroupVersionKind{
+					{Group: "", Version: "", Kind: PodKind},
+				},
+				Namespaces: []string{"default"},
 				Strategy: StrategyConfig{
-					//Mode: MaxAgeStrategy,
-					Mode: MaxCountStrategy,
-					//MaxAgeSetting: "30m",
+					Mode:            MaxCountStrategy,
 					MaxCountSetting: 1,
 				},
 				PreDeleteHook: myhook,
@@ -56,10 +59,10 @@ var _ = Describe("Prune", func() {
 			_ = createTestPods(client)
 		})
 		It("test pod maxCount strategy", func() {
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var pods []ResourceInfo
-			pods, err = cfg.getSucceededPods()
+			pods, err = cfg.getSucceededPods(ctx)
 			Expect(err).Should(BeNil())
 			Expect(len(pods)).To(Equal(1))
 			Expect(containsName(pods, "churro1")).To(Equal(true))
@@ -67,10 +70,10 @@ var _ = Describe("Prune", func() {
 		It("test pod maxAge strategy", func() {
 			cfg.Strategy.Mode = MaxAgeStrategy
 			cfg.Strategy.MaxAgeSetting = "3h"
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var pods []ResourceInfo
-			pods, err = cfg.getSucceededPods()
+			pods, err = cfg.getSucceededPods(ctx)
 			Expect(err).Should(BeNil())
 			Expect(containsName(pods, "churro1")).To(Equal(true))
 			Expect(containsName(pods, "churro2")).To(Equal(true))
@@ -79,35 +82,38 @@ var _ = Describe("Prune", func() {
 			cfg.Strategy.Mode = CustomStrategy
 			cfg.Strategy.CustomSettings = make(map[string]interface{})
 			cfg.CustomStrategy = myStrategy
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var pods []ResourceInfo
-			pods, err = cfg.getSucceededPods()
+			pods, err = cfg.getSucceededPods(ctx)
 			Expect(err).Should(BeNil())
 			Expect(len(pods)).To(Equal(3))
 		})
 	})
 
 	Describe("config validation", func() {
+		var (
+			ctx context.Context
+			cfg Config
+		)
 		BeforeEach(func() {
-
+			cfg = Config{}
+			cfg.log = logf.Log.WithName("prune")
+			ctx = context.Background()
 		})
 		It("should return an error when LabelSelector is not set", func() {
-			cfg := Config{}
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).ShouldNot(BeNil())
 		})
 		It("should return an error is Namespaces is empty", func() {
-			cfg := Config{}
 			cfg.LabelSelector = "app=churro"
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).ShouldNot(BeNil())
 		})
 		It("should return an error when labels dont parse", func() {
-			cfg := Config{}
 			cfg.Namespaces = []string{"one"}
 			cfg.LabelSelector = "-"
-			err := cfg.Execute()
+			err := cfg.Execute(ctx)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -116,17 +122,21 @@ var _ = Describe("Prune", func() {
 		var (
 			jobclient kubernetes.Interface
 			jobcfg    Config
+			ctx       context.Context
 		)
 		BeforeEach(func() {
 			jobclient = testclient.NewSimpleClientset()
 
+			ctx = context.Background()
 			jobcfg = Config{
-				Ctx:           context.Background(),
 				DryRun:        false,
+				log:           logf.Log.WithName("prune"),
 				Clientset:     jobclient,
 				LabelSelector: "app=churro",
-				Resources:     []ResourceKind{JobKind},
-				Namespaces:    []string{"default"},
+				Resources: []schema.GroupVersionKind{
+					{Group: "", Version: "", Kind: JobKind},
+				},
+				Namespaces: []string{"default"},
 				Strategy: StrategyConfig{
 					Mode:            MaxCountStrategy,
 					MaxCountSetting: 1,
@@ -139,19 +149,19 @@ var _ = Describe("Prune", func() {
 		It("test job maxAge strategy", func() {
 			jobcfg.Strategy.Mode = MaxAgeStrategy
 			jobcfg.Strategy.MaxAgeSetting = "3h"
-			err := jobcfg.Execute()
+			err := jobcfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var jobs []ResourceInfo
-			jobs, err = jobcfg.getCompletedJobs()
+			jobs, err = jobcfg.getCompletedJobs(ctx)
 			Expect(err).Should(BeNil())
 			Expect(containsName(jobs, "churro1")).To(Equal(true))
 			Expect(containsName(jobs, "churro2")).To(Equal(true))
 		})
 		It("test job maxCount strategy", func() {
-			err := jobcfg.Execute()
+			err := jobcfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var jobs []ResourceInfo
-			jobs, err = jobcfg.getCompletedJobs()
+			jobs, err = jobcfg.getCompletedJobs(ctx)
 			Expect(err).Should(BeNil())
 			Expect(len(jobs)).To(Equal(1))
 			Expect(containsName(jobs, "churro1")).To(Equal(true))
@@ -160,10 +170,10 @@ var _ = Describe("Prune", func() {
 			jobcfg.Strategy.Mode = CustomStrategy
 			jobcfg.Strategy.CustomSettings = make(map[string]interface{})
 			jobcfg.CustomStrategy = myStrategy
-			err := jobcfg.Execute()
+			err := jobcfg.Execute(ctx)
 			Expect(err).Should(BeNil())
 			var jobs []ResourceInfo
-			jobs, err = jobcfg.getCompletedJobs()
+			jobs, err = jobcfg.getCompletedJobs(ctx)
 			Expect(err).Should(BeNil())
 			Expect(len(jobs)).To(Equal(3))
 		})
