@@ -16,24 +16,25 @@ package prune
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
 // pruneByMaxCount looks for and prunes resources, currently jobs and pods,
 // that exceed a user specified count (e.g. 3), the oldest resources
-// are pruned
-func pruneByMaxCount(ctx context.Context, config Config, resources []ResourceInfo) (err error) {
+// are pruned, resources to remove are returned
+func pruneByMaxCount(_ context.Context, config Config, resources []ResourceInfo) (resourcesToRemove []ResourceInfo, err error) {
 	config.log.V(1).Info("pruneByMaxCount running ", "max count", config.Strategy.MaxCountSetting, "resource count", len(resources))
+	if config.Strategy.MaxCountSetting < 0 {
+		return resourcesToRemove, fmt.Errorf("max count setting less than zero")
+	}
 
 	if len(resources) > config.Strategy.MaxCountSetting {
 		removeCount := len(resources) - config.Strategy.MaxCountSetting
 		for i := len(resources) - 1; i >= 0; i-- {
 			config.log.V(1).Info("pruning pod ", "pod name", resources[i].Name, "age", time.Since(resources[i].StartTime))
 
-			err := config.removeResource(ctx, resources[i])
-			if err != nil {
-				return err
-			}
+			resourcesToRemove = append(resourcesToRemove, resources[i])
 
 			removeCount--
 			if removeCount == 0 {
@@ -42,5 +43,5 @@ func pruneByMaxCount(ctx context.Context, config Config, resources []ResourceInf
 		}
 	}
 
-	return nil
+	return resourcesToRemove, nil
 }

@@ -20,11 +20,16 @@ import (
 )
 
 // maxAge looks for and prunes resources, currently jobs and pods,
-// that exceed a user specified age (e.g. 3d)
-func pruneByMaxAge(ctx context.Context, config Config, resources []ResourceInfo) (err error) {
+// that exceed a user specified age (e.g. 3d), resources to be removed
+// are returned
+func pruneByMaxAge(_ context.Context, config Config, resources []ResourceInfo) (resourcesToRemove []ResourceInfo, err error) {
 	config.log.V(1).Info("maxAge running", "setting", config.Strategy.MaxAgeSetting)
 
-	maxAgeDuration, _ := time.ParseDuration(config.Strategy.MaxAgeSetting)
+	maxAgeDuration, e := time.ParseDuration(config.Strategy.MaxAgeSetting)
+	if e != nil {
+		return resourcesToRemove, e
+	}
+
 	maxAgeTime := time.Now().Add(-maxAgeDuration)
 
 	for i := 0; i < len(resources); i++ {
@@ -32,12 +37,9 @@ func pruneByMaxAge(ctx context.Context, config Config, resources []ResourceInfo)
 		if resources[i].StartTime.Before(maxAgeTime) {
 			config.log.V(1).Info("pruning ", "kind", resources[i].GVK, "name", resources[i].Name)
 
-			err := config.removeResource(ctx, resources[i])
-			if err != nil {
-				return err
-			}
+			resourcesToRemove = append(resourcesToRemove, resources[i])
 		}
 	}
 
-	return nil
+	return resourcesToRemove, nil
 }
