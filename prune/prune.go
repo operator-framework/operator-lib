@@ -54,7 +54,7 @@ type StrategyConfig struct {
 
 // StrategyFunc function allows a means to specify
 // custom prune strategies
-type StrategyFunc func(cfg Config, resources []ResourceInfo) error
+type StrategyFunc func(cfg Config, resources []ResourceInfo) ([]ResourceInfo, error)
 
 // PreDelete function is called before a resource is pruned
 type PreDelete func(cfg Config, something ResourceInfo) error
@@ -101,16 +101,23 @@ func (config Config) Execute(ctx context.Context) error {
 			config.log.V(1).Info("jobs ", "count", len(resourceList))
 		}
 
+		var resourcesToRemove []ResourceInfo
+
 		switch config.Strategy.Mode {
 		case MaxAgeStrategy:
-			err = pruneByMaxAge(ctx, config, resourceList)
+			resourcesToRemove, err = pruneByMaxAge(ctx, config, resourceList)
 		case MaxCountStrategy:
-			err = pruneByMaxCount(ctx, config, resourceList)
+			resourcesToRemove, err = pruneByMaxCount(ctx, config, resourceList)
 		case CustomStrategy:
-			err = config.CustomStrategy(config, resourceList)
+			resourcesToRemove, err = config.CustomStrategy(config, resourceList)
 		default:
 			return fmt.Errorf("unknown strategy")
 		}
+		if err != nil {
+			return err
+		}
+
+		err = config.removeResources(ctx, resourcesToRemove)
 		if err != nil {
 			return err
 		}

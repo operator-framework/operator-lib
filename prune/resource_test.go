@@ -325,11 +325,12 @@ func myhook(cfg Config, x ResourceInfo) error {
 
 // myStrategy shows how you can write your own strategy, in this
 // example, the strategy doesn't really do another other than count
-// the number of resources
-func myStrategy(cfg Config, resources []ResourceInfo) error {
+// the number of resources, returning a list of resources to delete in
+// this case zero.
+func myStrategy(cfg Config, resources []ResourceInfo) (resourcesToRemove []ResourceInfo, err error) {
 	fmt.Printf("myStrategy is called with resources %v config %v\n", resources, cfg)
 	if len(resources) != 3 {
-		return fmt.Errorf("count of resources did not equal our expectation")
+		return resourcesToRemove, fmt.Errorf("count of resources did not equal our expectation")
 	}
-	return nil
+	return resourcesToRemove, nil
 }

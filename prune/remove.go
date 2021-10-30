@@ -21,32 +21,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (config Config) removeResource(ctx context.Context, resource ResourceInfo) (err error) {
+func (config Config) removeResources(ctx context.Context, resources []ResourceInfo) (err error) {
 
 	if config.DryRun {
 		return nil
 	}
 
-	if config.PreDeleteHook != nil {
-		err = config.PreDeleteHook(config, resource)
-		if err != nil {
-			return err
-		}
-	}
+	for i := 0; i < len(resources); i++ {
+		r := resources[i]
 
-	switch resource.GVK.Kind {
-	case PodKind:
-		err := config.Clientset.CoreV1().Pods(resource.Namespace).Delete(ctx, resource.Name, metav1.DeleteOptions{})
-		if err != nil {
-			return err
+		if config.PreDeleteHook != nil {
+			err = config.PreDeleteHook(config, r)
+			if err != nil {
+				return err
+			}
 		}
-	case JobKind:
-		err := config.Clientset.BatchV1().Jobs(resource.Namespace).Delete(ctx, resource.Name, metav1.DeleteOptions{})
-		if err != nil {
-			return err
+
+		switch resources[i].GVK.Kind {
+		case PodKind:
+			err := config.Clientset.CoreV1().Pods(r.Namespace).Delete(ctx, r.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		case JobKind:
+			err := config.Clientset.BatchV1().Jobs(r.Namespace).Delete(ctx, r.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported resource kind")
 		}
-	default:
-		return fmt.Errorf("unsupported resource kind")
 	}
 
 	return nil
