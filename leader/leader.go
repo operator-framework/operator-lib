@@ -229,7 +229,7 @@ func myOwnerRef(ctx context.Context, client crclient.Client, ns string) (*metav1
 
 func isPodEvicted(pod corev1.Pod) bool {
 	podFailed := pod.Status.Phase == corev1.PodFailed
-	podEvicted := pod.Status.Reason == "Evicted"
+	podEvicted := pod.Status.Reason == "Evicted" || pod.Status.Reason == "Shutdown"
 	return podFailed && podEvicted
 }
 
