@@ -1,6 +1,0 @@
-vendor*
-cover.out
-bin/
-
-# IDE baggage
-.idea/
