@@ -53,9 +53,9 @@ var _ = Describe("filter", func() {
 			hdlr handler.EventHandler
 		)
 		BeforeEach(func() {
-			pred, err = annotation.NewFalsyPredicate(annotationKey, annotation.Options{Log: logf.NullLogger{}})
+			pred, err = annotation.NewFalsyPredicate(annotationKey, annotation.Options{Log: logf.Log})
 			Expect(err).NotTo(HaveOccurred())
-			hdlr, err = annotation.NewFalsyEventHandler(annotationKey, annotation.Options{Log: logf.NullLogger{}})
+			hdlr, err = annotation.NewFalsyEventHandler(annotationKey, annotation.Options{Log: logf.Log})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -316,9 +316,9 @@ var _ = Describe("filter", func() {
 			hdlr handler.EventHandler
 		)
 		BeforeEach(func() {
-			pred, err = annotation.NewTruthyPredicate(annotationKey, annotation.Options{Log: logf.NullLogger{}})
+			pred, err = annotation.NewTruthyPredicate(annotationKey, annotation.Options{Log: logf.Log})
 			Expect(err).NotTo(HaveOccurred())
-			hdlr, err = annotation.NewTruthyEventHandler(annotationKey, annotation.Options{Log: logf.NullLogger{}})
+			hdlr, err = annotation.NewTruthyEventHandler(annotationKey, annotation.Options{Log: logf.Log})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
