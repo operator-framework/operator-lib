@@ -41,7 +41,7 @@ var _ = Describe("Prune", func() {
 			client = testclient.NewSimpleClientset()
 			ctx = context.Background()
 			cfg = Config{
-				log:           logf.Log.WithName("prune"),
+				Log:           logf.Log.WithName("prune"),
 				DryRun:        false,
 				Clientset:     client,
 				LabelSelector: "app=churro",
@@ -98,7 +98,7 @@ var _ = Describe("Prune", func() {
 		)
 		BeforeEach(func() {
 			cfg = Config{}
-			cfg.log = logf.Log.WithName("prune")
+			cfg.Log = logf.Log.WithName("prune")
 			ctx = context.Background()
 		})
 		It("should return an error when LabelSelector is not set", func() {
@@ -130,7 +130,7 @@ var _ = Describe("Prune", func() {
 			ctx = context.Background()
 			jobcfg = Config{
 				DryRun:        false,
-				log:           logf.Log.WithName("prune"),
+				Log:           logf.Log.WithName("prune"),
 				Clientset:     jobclient,
 				LabelSelector: "app=churro",
 				Resources: []schema.GroupVersionKind{
@@ -318,8 +318,9 @@ func createTestPods(client kubernetes.Interface) (err error) {
 	return nil
 }
 
-func myhook(cfg Config, x ResourceInfo) error {
-	fmt.Println("myhook is called ")
+func myhook(ctx context.Context, cfg Config, x ResourceInfo) error {
+	log := Logger(ctx, cfg)
+	log.V(1).Info("myhook is called")
 	return nil
 }
 
@@ -327,8 +328,9 @@ func myhook(cfg Config, x ResourceInfo) error {
 // example, the strategy doesn't really do another other than count
 // the number of resources, returning a list of resources to delete in
 // this case zero.
-func myStrategy(cfg Config, resources []ResourceInfo) (resourcesToRemove []ResourceInfo, err error) {
-	fmt.Printf("myStrategy is called with resources %v config %v\n", resources, cfg)
+func myStrategy(ctx context.Context, cfg Config, resources []ResourceInfo) (resourcesToRemove []ResourceInfo, err error) {
+	log := Logger(ctx, cfg)
+	log.V(1).Info("myStrategy is called", "resources", resources, "config", cfg)
 	if len(resources) != 3 {
 		return resourcesToRemove, fmt.Errorf("count of resources did not equal our expectation")
 	}

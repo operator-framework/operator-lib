@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ResourceStatus describes the Kubernetes resource status we are evaluating
@@ -54,10 +56,10 @@ type StrategyConfig struct {
 
 // StrategyFunc function allows a means to specify
 // custom prune strategies
-type StrategyFunc func(cfg Config, resources []ResourceInfo) ([]ResourceInfo, error)
+type StrategyFunc func(ctx context.Context, cfg Config, resources []ResourceInfo) ([]ResourceInfo, error)
 
 // PreDelete function is called before a resource is pruned
-type PreDelete func(cfg Config, something ResourceInfo) error
+type PreDelete func(ctx context.Context, cfg Config, something ResourceInfo) error
 
 // Config defines a pruning configuration and ultimately
 // determines what will get pruned
@@ -70,13 +72,13 @@ type Config struct {
 	Strategy       StrategyConfig            //strategy for pruning, either age or max
 	CustomStrategy StrategyFunc              //custom strategy
 	PreDeleteHook  PreDelete                 //called before resource is deleteds
-	log            logr.Logger
+	Log            logr.Logger               //optional: to overwrite the logger set at context level
 }
 
 // Execute causes the pruning work to be executed based on its configuration
 func (config Config) Execute(ctx context.Context) error {
-
-	config.log.V(1).Info("Execute Prune")
+	log := Logger(ctx, config)
+	log.V(1).Info("Execute Prune")
 
 	err := config.validate()
 	if err != nil {
@@ -92,13 +94,13 @@ func (config Config) Execute(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			config.log.V(1).Info("pods ", "count", len(resourceList))
+			log.V(1).Info("pods ", "count", len(resourceList))
 		} else if config.Resources[i].Kind == JobKind {
 			resourceList, err = config.getCompletedJobs(ctx)
 			if err != nil {
 				return err
 			}
-			config.log.V(1).Info("jobs ", "count", len(resourceList))
+			log.V(1).Info("jobs ", "count", len(resourceList))
 		}
 
 		var resourcesToRemove []ResourceInfo
@@ -109,7 +111,7 @@ func (config Config) Execute(ctx context.Context) error {
 		case MaxCountStrategy:
 			resourcesToRemove, err = pruneByMaxCount(ctx, config, resourceList)
 		case CustomStrategy:
-			resourcesToRemove, err = config.CustomStrategy(config, resourceList)
+			resourcesToRemove, err = config.CustomStrategy(ctx, config, resourceList)
 		default:
 			return fmt.Errorf("unknown strategy")
 		}
@@ -123,7 +125,7 @@ func (config Config) Execute(ctx context.Context) error {
 		}
 	}
 
-	config.log.V(1).Info("Prune completed")
+	log.V(1).Info("Prune completed")
 
 	return nil
 }
@@ -180,4 +182,18 @@ func (config Config) validate() (err error) {
 		}
 	}
 	return nil
+}
+
+// Logger returns a logger from the context using logr method or Config.Log if none is found
+// controller-runtime automatically provides a logger in context.Context during Reconcile calls.
+// Note that there is no compile time check whether a logger can be retrieved by either way.
+// keysAndValues allow to add fields to the logs, cf logr documentation.
+func Logger(ctx context.Context, cfg Config, keysAndValues ...interface{}) logr.Logger {
+	var log logr.Logger
+	if cfg.Log != (logr.Logger{}) {
+		log = cfg.Log
+	} else {
+		log = ctrllog.FromContext(ctx)
+	}
+	return log.WithValues(keysAndValues...)
 }
