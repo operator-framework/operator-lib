@@ -31,7 +31,7 @@ func (config Config) removeResources(ctx context.Context, resources []ResourceIn
 		r := resources[i]
 
 		if config.PreDeleteHook != nil {
-			err = config.PreDeleteHook(config, r)
+			err = config.PreDeleteHook(ctx, config, r)
 			if err != nil {
 				return err
 			}
