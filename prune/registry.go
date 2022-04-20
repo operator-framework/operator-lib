@@ -60,8 +60,3 @@ func (r *Registry) IsPrunable(obj client.Object) error {
 func RegisterIsPrunableFunc(gvk schema.GroupVersionKind, isPrunable IsPrunableFunc) {
 	DefaultRegistry().RegisterIsPrunableFunc(gvk, isPrunable)
 }
-
-// IsPrunable checks if an object is prunable
-func IsPrunable(obj client.Object) error {
-	return DefaultRegistry().IsPrunable(obj)
-}

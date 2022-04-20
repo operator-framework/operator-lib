@@ -21,9 +21,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Some default pruneable functions
-
 // DefaultPodIsPrunable is a default IsPrunableFunc to be used specifically with Pod resources.
+// It marks a Pod resource as prunable if it's Status.Phase is "Succeeded"
 // This can be overridden by registering your own IsPrunableFunc via the RegisterIsPrunableFunc method
 func DefaultPodIsPrunable(obj client.Object) error {
 	pod := obj.(*corev1.Pod)
@@ -38,12 +37,10 @@ func DefaultPodIsPrunable(obj client.Object) error {
 }
 
 // DefaultJobIsPrunable is a default IsPrunableFunc to be used specifically with Job resources.
+// It marks a Job resource as prunable if it's Status.CompletionTime value is not `nil`, indicating that the Job has completed
 // This can be overridden by registering your own IsPrunableFunc via the RegisterIsPrunableFunc method
 func DefaultJobIsPrunable(obj client.Object) error {
-
 	job := obj.(*batchv1.Job)
-
-	// If the job has completed we can remove it
 	if job.Status.CompletionTime == nil {
 		return &Unprunable{
 			Obj:    &obj,

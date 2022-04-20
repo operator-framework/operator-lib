@@ -68,7 +68,6 @@ var _ = Describe("Prune", func() {
 			p.Labels = labels
 
 			p.Namespace = namespace
-			p.Client = fakeClient
 		}
 
 		podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
@@ -118,7 +117,7 @@ var _ = Describe("Prune", func() {
 					Kind:    "NotReal",
 				})
 
-				Expect(IsPrunable(obj)).Should(BeNil())
+				Expect(NewRegistry().IsPrunable(obj)).Should(BeNil())
 			})
 		})
 
@@ -137,13 +136,12 @@ var _ = Describe("Prune", func() {
 				labels := map[string]string{"app": "churro"}
 				logger := &logr.Logger{}
 				pruner := NewPruner(fakeClient,
-					SetRegistry(*registry),
-					Namespace(namespace),
-					Labels(labels),
-					DryRun(),
-					SetStrategy(nil),
-					SetLogger(*logger),
-					GVK(jobGVK))
+					WithRegistry(*registry),
+					WithNamespace(namespace),
+					WithLabels(labels),
+					WithStrategy(nil),
+					WithLogger(*logger),
+					WithGVK(jobGVK))
 
 				Expect(pruner).ShouldNot(BeNil())
 				Expect(&pruner.Registry).Should(Equal(registry))
@@ -151,7 +149,6 @@ var _ = Describe("Prune", func() {
 				Expect(pruner.Labels).Should(Equal(labels))
 				Expect(&pruner.Logger).Should(Equal(logger))
 				Expect(pruner.Strategy).Should(BeNil())
-				Expect(pruner.DryRun).Should(BeTrue())
 				Expect(pruner.GVK).Should(Equal(jobGVK))
 				Expect(pruner.Client).Should(Equal(fakeClient))
 			})
@@ -203,7 +200,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, GVK(jobGVK))
+					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
 
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -233,7 +230,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, GVK(jobGVK))
+					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
 
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -252,7 +249,7 @@ var _ = Describe("Prune", func() {
 					Expect(len(jobs.Items)).Should(Equal(1))
 				})
 
-				It("Should Not Prune Resources when DryRun is set to true", func() {
+				It("Should Not Prune Resources when using a DryRunClient", func() {
 					// Create the test resources - in this case Pods
 					err := createTestPods(fakeClient)
 
@@ -266,11 +263,10 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig)
+					dryRunClient := client.NewDryRunClient(fakeClient)
+					pruner := NewPruner(dryRunClient, prunerConfig)
 
 					Expect(pruner).ShouldNot(BeNil())
-
-					pruner.DryRun = true
 
 					prunedObjects, err := pruner.Prune(context.Background())
 
@@ -298,7 +294,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, GVK(jobGVK))
+					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
 
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -341,7 +337,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, GVK(jobGVK))
+					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
 
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -389,14 +385,14 @@ var _ = Describe("Prune", func() {
 					RegisterIsPrunableFunc(jobGVK, myIsPrunable)
 
 					// Override pruner strategy with one that will return an error
-					pruner.Strategy = func(ctx context.Context, objs []client.Object) ([]client.ObjectKey, error) {
+					pruner.Strategy = func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
 						return nil, fmt.Errorf("TESTERROR")
 					}
 
 					prunedObjects, err := pruner.Prune(context.Background())
 
 					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal("failed when running Strategy -- ERROR -- TESTERROR"))
+					Expect(err.Error()).Should(Equal("error determining prunable objects: TESTERROR"))
 					Expect(prunedObjects).Should(BeNil())
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
@@ -420,7 +416,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, GVK(jobGVK))
+					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
 
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
@@ -438,7 +434,7 @@ var _ = Describe("Prune", func() {
 					prunedObjects, err := pruner.Prune(context.Background())
 
 					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(ContainSubstring("failed to prune object -- ERROR -- jobs.batch \"churro1\" not found"))
+					Expect(err.Error()).Should(ContainSubstring("error pruning object: jobs.batch \"churro1\" not found"))
 					Expect(len(prunedObjects)).Should(Equal(0))
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
@@ -670,13 +666,13 @@ func createSchemes() (*runtime.Scheme, error) {
 // myStrategy shows how you can write your own strategy
 // In this example it simply removes a resource if it has
 // the name 'churro1' or 'churro2'
-func myStrategy(ctx context.Context, objs []client.Object) ([]client.ObjectKey, error) {
-	var objsToRemove []client.ObjectKey
+func myStrategy(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+	var objsToRemove []client.Object
 
 	for _, obj := range objs {
 		// If the object has name churro1 or churro2 get rid of it
 		if obj.GetName() == "churro1" || obj.GetName() == "churro2" {
-			objsToRemove = append(objsToRemove, client.ObjectKeyFromObject(obj))
+			objsToRemove = append(objsToRemove, obj)
 		}
 	}
 
