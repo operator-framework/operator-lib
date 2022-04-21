@@ -184,7 +184,7 @@ var _ = Describe("Prune", func() {
 
 		Describe("Prune()", func() {
 			Context("Does not return an Error", func() {
-				It("Should Prune Pods with Default IsPrunableFunc", func() {
+				It("Should Prune Pods with Default IsPrunableFunc", func() { //nolint:dupl
 					// Create the test resources - in this case Pods
 					err := createTestPods(fakeClient)
 					Expect(err).Should(BeNil())
@@ -210,7 +210,7 @@ var _ = Describe("Prune", func() {
 					Expect(len(pods.Items)).Should(Equal(1))
 				})
 
-				It("Should Prune Jobs with Default IsPrunableFunc", func() {
+				It("Should Prune Jobs with Default IsPrunableFunc", func() { //nolint:dupl
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
 					Expect(err).Should(BeNil())
