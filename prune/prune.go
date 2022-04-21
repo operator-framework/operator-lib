@@ -40,27 +40,27 @@ func init() {
 
 // Pruner is an object that runs a prune job.
 type Pruner struct {
-	Registry
+	registry Registry
 
-	// Client is the controller-runtime client that will be used
+	// client is the controller-runtime client that will be used
 	// To perform a dry run, use the controller-runtime DryRunClient
-	Client client.Client
+	client client.Client
 
-	// GVK is the type of objects to prune.
+	// gvk is the type of objects to prune.
 	// It defaults to Pod
-	GVK schema.GroupVersionKind
+	gvk schema.GroupVersionKind
 
-	// Strategy is the function used to determine a list of resources that are pruneable
-	Strategy StrategyFunc
+	// strategy is the function used to determine a list of resources that are pruneable
+	strategy StrategyFunc
 
-	// Labels is a map of the labels to use for label matching when looking for resources
-	Labels map[string]string
+	// labels is a map of the labels to use for label matching when looking for resources
+	labels map[string]string
 
-	// Namespace is the namespace to use when looking for resources
-	Namespace string
+	// namespace is the namespace to use when looking for resources
+	namespace string
 
-	// Logger is the logger to use when running pruning functionality
-	Logger logr.Logger
+	// logger is the logger to use when running pruning functionality
+	logger logr.Logger
 }
 
 // Unprunable indicates that it is not allowed to prune a specific object.
@@ -80,92 +80,95 @@ type StrategyFunc func(ctx context.Context, objs []client.Object) ([]client.Obje
 // IsPrunableFunc is a function that checks the data of an object to see whether or not it is safe to prune it.
 // It should return `nil` if it is safe to prune, `Unprunable` if it is unsafe, or another error.
 // It should safely assert the object is the expected type, otherwise it might panic.
-type IsPrunableFunc func(obj client.Object) error
+type IsPrunableFunc func(obj client.Object, logger logr.Logger) error
 
 // PrunerOption configures the pruner.
 type PrunerOption func(p *Pruner)
 
-// WithRegistry can be used to set the Registry field when configuring a Pruner
-func WithRegistry(registry Registry) PrunerOption {
-	return func(p *Pruner) {
-		p.Registry = registry
-	}
-}
-
-// WithStrategy can be used to set the Strategy field when configuring a Pruner
-func WithStrategy(strategy StrategyFunc) PrunerOption {
-	return func(p *Pruner) {
-		p.Strategy = strategy
-	}
-}
-
 // WithNamespace can be used to set the Namespace field when configuring a Pruner
 func WithNamespace(namespace string) PrunerOption {
 	return func(p *Pruner) {
-		p.Namespace = namespace
+		p.namespace = namespace
 	}
 }
 
 // WithLogger can be used to set the Logger field when configuring a Pruner
 func WithLogger(logger logr.Logger) PrunerOption {
 	return func(p *Pruner) {
-		p.Logger = logger
+		p.logger = logger
 	}
 }
 
 // WithLabels can be used to set the Labels field when configuring a Pruner
 func WithLabels(labels map[string]string) PrunerOption {
 	return func(p *Pruner) {
-		p.Labels = labels
+		p.labels = labels
 	}
 }
 
-// WithGVK can be used to set the GVK field when configuring a Pruner
-func WithGVK(gvk schema.GroupVersionKind) PrunerOption {
-	return func(p *Pruner) {
-		p.GVK = gvk
-	}
+// GVK returns the schema.GroupVersionKind that the Pruner has set
+func (p Pruner) GVK() schema.GroupVersionKind {
+	return p.gvk
 }
 
-// NewPruner returns a pruner that uses the given strategy to prune objects.
-func NewPruner(prunerClient client.Client, opts ...PrunerOption) Pruner {
+// Labels returns the labels that the Pruner is using to find resources to prune
+func (p Pruner) Labels() map[string]string {
+	return p.labels
+}
+
+// Namespace returns the namespace that the Pruner is using to find resources to prune
+func (p Pruner) Namespace() string {
+	return p.namespace
+}
+
+// NewPruner returns a pruner that uses the given strategy to prune objects that have the given GVK
+func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (Pruner, error) {
+	// check for nil explicit parameters
+	// if gvk.Group == "" then it maps to the 'core' Group
+	if prunerClient == nil ||
+		(gvk.Version == "" || gvk.Kind == "") ||
+		strategy == nil {
+		return Pruner{}, fmt.Errorf("error creating a new Pruner: explicit parameters cannot be nil or contain empty values")
+	}
+
 	pruner := Pruner{
-		Registry: defaultRegistry,
-		Client:   prunerClient,
-		Logger:   Logger(context.Background(), Pruner{}),
-		GVK:      corev1.SchemeGroupVersion.WithKind("Pod"),
+		registry: defaultRegistry,
+		client:   prunerClient,
+		logger:   Logger(context.Background(), Pruner{}),
+		gvk:      gvk,
+		strategy: strategy,
 	}
 
 	for _, opt := range opts {
 		opt(&pruner)
 	}
 
-	return pruner
+	return pruner, nil
 }
 
 // Prune runs the pruner.
 func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 	var objs []client.Object
-	p.Logger.Info("Starting the pruning process...")
+	p.logger.Info("Starting the pruning process...")
 	listOpts := client.ListOptions{
-		LabelSelector: labels.Set(p.Labels).AsSelector(),
-		Namespace:     p.Namespace,
+		LabelSelector: labels.Set(p.labels).AsSelector(),
+		Namespace:     p.namespace,
 	}
 
 	var unstructuredObjs unstructured.UnstructuredList
-	unstructuredObjs.SetGroupVersionKind(p.GVK)
-	if err := p.Client.List(ctx, &unstructuredObjs, &listOpts); err != nil {
+	unstructuredObjs.SetGroupVersionKind(p.gvk)
+	if err := p.client.List(ctx, &unstructuredObjs, &listOpts); err != nil {
 		return nil, fmt.Errorf("error getting a list of resources: %w", err)
 	}
 
 	for _, unsObj := range unstructuredObjs.Items {
-		obj, err := convert(p.Client, p.GVK, &unsObj)
+		obj, err := convert(p.client, p.gvk, &unsObj)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := p.IsPrunable(obj); isUnprunable(err) {
-			p.Logger.Info(fmt.Errorf("object is unprunable: %w", err).Error())
+		if err := p.registry.IsPrunable(obj, p.logger); isUnprunable(err) {
+			p.logger.Info(fmt.Errorf("object is unprunable: %w", err).Error())
 			continue
 		} else if err != nil {
 			return nil, err
@@ -174,14 +177,14 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 		objs = append(objs, obj)
 	}
 
-	objsToPrune, err := p.Strategy(ctx, objs)
+	objsToPrune, err := p.strategy(ctx, objs)
 	if err != nil {
 		return nil, fmt.Errorf("error determining prunable objects: %w", err)
 	}
 
 	// Prune the resources
 	for _, obj := range objsToPrune {
-		if err = p.Client.Delete(ctx, obj); err != nil {
+		if err = p.client.Delete(ctx, obj); err != nil {
 			return nil, fmt.Errorf("error pruning object: %w", err)
 		}
 	}
@@ -195,8 +198,8 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 // keysAndValues allow to add fields to the logs, cf logr documentation.
 func Logger(ctx context.Context, pruner Pruner, keysAndValues ...interface{}) logr.Logger {
 	var log logr.Logger
-	if pruner.Logger != (logr.Logger{}) {
-		log = pruner.Logger
+	if pruner.logger != (logr.Logger{}) {
+		log = pruner.logger
 	} else {
 		log = ctrllog.FromContext(ctx)
 	}

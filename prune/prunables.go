@@ -15,6 +15,7 @@
 package prune
 
 import (
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,7 +25,7 @@ import (
 // DefaultPodIsPrunable is a default IsPrunableFunc to be used specifically with Pod resources.
 // It marks a Pod resource as prunable if it's Status.Phase is "Succeeded"
 // This can be overridden by registering your own IsPrunableFunc via the RegisterIsPrunableFunc method
-func DefaultPodIsPrunable(obj client.Object) error {
+func DefaultPodIsPrunable(obj client.Object, logger logr.Logger) error {
 	pod := obj.(*corev1.Pod)
 	if pod.Status.Phase != corev1.PodSucceeded {
 		return &Unprunable{
@@ -39,7 +40,7 @@ func DefaultPodIsPrunable(obj client.Object) error {
 // DefaultJobIsPrunable is a default IsPrunableFunc to be used specifically with Job resources.
 // It marks a Job resource as prunable if it's Status.CompletionTime value is not `nil`, indicating that the Job has completed
 // This can be overridden by registering your own IsPrunableFunc via the RegisterIsPrunableFunc method
-func DefaultJobIsPrunable(obj client.Object) error {
+func DefaultJobIsPrunable(obj client.Object, logger logr.Logger) error {
 	job := obj.(*batchv1.Job)
 	if job.Status.CompletionTime == nil {
 		return &Unprunable{

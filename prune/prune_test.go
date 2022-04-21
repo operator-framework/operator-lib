@@ -48,32 +48,23 @@ var _ = Describe("Prune", func() {
 	)
 	BeforeEach(func() {
 		testScheme, err := createSchemes()
-
 		Expect(err).Should(BeNil())
 
 		fakeClient = crFake.NewClientBuilder().WithScheme(testScheme).Build()
-
 		fakeObj = &corev1.Pod{}
 
 		// Create our function to configure our pruner
 		prunerConfig = func(p *Pruner) {
-
 			// Create the labels we want to select with
 			labels := make(map[string]string)
 			labels["app"] = app
 
-			// Set our strategy
-			p.Strategy = myStrategy
-
-			p.Labels = labels
-
-			p.Namespace = namespace
+			p.labels = labels
+			p.namespace = namespace
 		}
 
 		podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
-
 		jobGVK = batchv1.SchemeGroupVersion.WithKind("Job")
-
 	})
 
 	Describe("Unprunable", func() {
@@ -83,7 +74,6 @@ var _ = Describe("Prune", func() {
 					Obj:    &fakeObj,
 					Reason: "TestReason",
 				}
-
 				Expect(unpruneable.Error()).To(Equal(fmt.Sprintf("unable to prune %s: %s", client.ObjectKeyFromObject(fakeObj), unpruneable.Reason)))
 			})
 		})
@@ -93,7 +83,6 @@ var _ = Describe("Prune", func() {
 		Describe("NewRegistry()", func() {
 			It("Should Return a New Registry Object", func() {
 				registry := NewRegistry()
-
 				Expect(registry).ShouldNot(BeNil())
 			})
 		})
@@ -101,10 +90,10 @@ var _ = Describe("Prune", func() {
 		Describe("RegisterIsPrunableFunc()", func() {
 			It("Should Add an Entry to Registry Prunables Map", func() {
 				registry := NewRegistry()
-
 				Expect(registry).ShouldNot(BeNil())
 
 				registry.RegisterIsPrunableFunc(podGVK, myIsPrunable)
+				Expect(registry.prunables).Should(HaveKey(podGVK))
 			})
 		})
 
@@ -117,42 +106,80 @@ var _ = Describe("Prune", func() {
 					Kind:    "NotReal",
 				})
 
-				Expect(NewRegistry().IsPrunable(obj)).Should(BeNil())
+				Expect(NewRegistry().IsPrunable(obj, logr.Logger{})).Should(BeNil())
 			})
 		})
 
 	})
 	Describe("Pruner", func() {
 		Describe("NewPruner()", func() {
-			It("Should Return a New Pruner Object", func() {
-				pruner := NewPruner(fakeClient)
+			Context("Successful", func() {
+				It("Should Return a New Pruner Object", func() {
+					pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
+					Expect(err).Should(BeNil())
+					Expect(pruner).ShouldNot(BeNil())
+				})
 
-				Expect(pruner).ShouldNot(BeNil())
+				It("Should Return a New Pruner Object with Custom Configuration", func() {
+					namespace := "namespace"
+					labels := map[string]string{"app": "churro"}
+					logger := &logr.Logger{}
+					pruner, err := NewPruner(fakeClient,
+						jobGVK,
+						myStrategy,
+						WithNamespace(namespace),
+						WithLabels(labels),
+						WithLogger(*logger))
+
+					Expect(err).Should(BeNil())
+					Expect(pruner).ShouldNot(BeNil())
+					Expect(&pruner.registry).Should(Equal(DefaultRegistry()))
+					Expect(pruner.namespace).Should(Equal(namespace))
+					Expect(pruner.labels).Should(Equal(labels))
+					Expect(&pruner.logger).Should(Equal(logger))
+					Expect(pruner.strategy).ShouldNot(BeNil())
+					Expect(pruner.gvk).Should(Equal(jobGVK))
+					Expect(pruner.client).Should(Equal(fakeClient))
+				})
 			})
 
-			It("Should Return a New Pruner Object with Custom Configuration", func() {
-				registry := NewRegistry()
-				namespace := "namespace"
-				labels := map[string]string{"app": "churro"}
-				logger := &logr.Logger{}
-				pruner := NewPruner(fakeClient,
-					WithRegistry(*registry),
-					WithNamespace(namespace),
-					WithLabels(labels),
-					WithStrategy(nil),
-					WithLogger(*logger),
-					WithGVK(jobGVK))
+			Context("Errors", func() {
+				errorString := "error creating a new Pruner: explicit parameters cannot be nil or contain empty values"
 
-				Expect(pruner).ShouldNot(BeNil())
-				Expect(&pruner.Registry).Should(Equal(registry))
-				Expect(pruner.Namespace).Should(Equal(namespace))
-				Expect(pruner.Labels).Should(Equal(labels))
-				Expect(&pruner.Logger).Should(Equal(logger))
-				Expect(pruner.Strategy).Should(BeNil())
-				Expect(pruner.GVK).Should(Equal(jobGVK))
-				Expect(pruner.Client).Should(Equal(fakeClient))
+				It("Should Error if client.Client Parameter is nil", func() {
+					pruner, err := NewPruner(nil, podGVK, myStrategy)
+					Expect(err).ShouldNot(BeNil())
+					Expect(err.Error()).Should(Equal(errorString))
+					Expect(pruner).ShouldNot(BeNil())
+				})
+
+				It("Should Error if schema.GroupVersionKind Parameter fields have empty values", func() {
+					// empty GVK struct
+					pruner, err := NewPruner(fakeClient, schema.GroupVersionKind{}, myStrategy)
+					Expect(err).ShouldNot(BeNil())
+					Expect(err.Error()).Should(Equal(errorString))
+					Expect(pruner).ShouldNot(BeNil())
+
+					// empty Version
+					pruner, err = NewPruner(fakeClient, schema.GroupVersionKind{Group: "group", Kind: "kind"}, myStrategy)
+					Expect(err).ShouldNot(BeNil())
+					Expect(err.Error()).Should(Equal(errorString))
+					Expect(pruner).ShouldNot(BeNil())
+
+					// empty Kind
+					pruner, err = NewPruner(fakeClient, schema.GroupVersionKind{Group: "group", Version: "version"}, myStrategy)
+					Expect(err).ShouldNot(BeNil())
+					Expect(err.Error()).Should(Equal(errorString))
+					Expect(pruner).ShouldNot(BeNil())
+				})
+
+				It("Should Error if StrategyFunc parameter is nil", func() {
+					pruner, err := NewPruner(fakeClient, podGVK, nil)
+					Expect(err).ShouldNot(BeNil())
+					Expect(err.Error()).Should(Equal(errorString))
+					Expect(pruner).ShouldNot(BeNil())
+				})
 			})
-
 		})
 
 		Describe("Prune()", func() {
@@ -160,28 +187,25 @@ var _ = Describe("Prune", func() {
 				It("Should Prune Pods with Default IsPrunableFunc", func() {
 					// Create the test resources - in this case Pods
 					err := createTestPods(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the pod resources are properly created
 					pods := &unstructured.UnstructuredList{}
 					pods.SetGroupVersionKind(podGVK)
 					err = fakeClient.List(context.Background(), pods)
-
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig)
-
+					pruner, err := NewPruner(fakeClient, podGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).Should(BeNil())
 					Expect(len(prunedObjects)).Should(Equal(2))
+
 					// Get a list of the Pods to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), pods)
-
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(1))
 				})
@@ -189,29 +213,25 @@ var _ = Describe("Prune", func() {
 				It("Should Prune Jobs with Default IsPrunableFunc", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
-
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).Should(BeNil())
 					Expect(len(prunedObjects)).Should(Equal(2))
 
 					// Get a list of the job to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(1))
 				})
@@ -219,32 +239,28 @@ var _ = Describe("Prune", func() {
 				It("Should Remove Resource When Using a Custom IsPrunableFunc", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
-
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					// Register our custom IsPrunableFunc
 					RegisterIsPrunableFunc(jobGVK, myIsPrunable)
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).Should(BeNil())
 					Expect(len(prunedObjects)).Should(Equal(2))
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(1))
 				})
@@ -252,30 +268,26 @@ var _ = Describe("Prune", func() {
 				It("Should Not Prune Resources when using a DryRunClient", func() {
 					// Create the test resources - in this case Pods
 					err := createTestPods(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the pod resources are properly created
 					pods := &unstructured.UnstructuredList{}
 					pods.SetGroupVersionKind(podGVK)
 					err = fakeClient.List(context.Background(), pods)
-
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
 					dryRunClient := client.NewDryRunClient(fakeClient)
-					pruner := NewPruner(dryRunClient, prunerConfig)
-
+					pruner, err := NewPruner(dryRunClient, podGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).Should(BeNil())
 					Expect(len(prunedObjects)).Should(Equal(2))
 
 					// Get a list of the Pods to make sure we haven't pruned any
 					err = fakeClient.List(context.Background(), pods)
-
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 				})
@@ -283,23 +295,21 @@ var _ = Describe("Prune", func() {
 				It("Should Skip Pruning a Resource If IsPrunable Returns an Error of Type Unprunable", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
-
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that throws Unprunable error
-					errorPrunableFunc := func(obj client.Object) error {
+					errorPrunableFunc := func(obj client.Object, logger logr.Logger) error {
 						return &Unprunable{
 							Obj:    &obj,
 							Reason: "TEST",
@@ -310,13 +320,11 @@ var _ = Describe("Prune", func() {
 					RegisterIsPrunableFunc(jobGVK, errorPrunableFunc)
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).Should(BeNil())
 					Expect(len(prunedObjects)).Should(Equal(0))
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 				})
@@ -326,23 +334,21 @@ var _ = Describe("Prune", func() {
 				It("Should Return an Error if IsPrunableFunc Returns an Error That is not of Type Unprunable", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
-
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that throws non Unprunable error
-					errorPrunableFunc := func(obj client.Object) error {
+					errorPrunableFunc := func(obj client.Object, logger logr.Logger) error {
 						return fmt.Errorf("TEST")
 					}
 
@@ -350,14 +356,12 @@ var _ = Describe("Prune", func() {
 					RegisterIsPrunableFunc(jobGVK, errorPrunableFunc)
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).ShouldNot(BeNil())
 					Expect(err.Error()).Should(Equal("TEST"))
 					Expect(len(prunedObjects)).Should(Equal(0))
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 				})
@@ -365,39 +369,34 @@ var _ = Describe("Prune", func() {
 				It("Should Return An Error If Strategy Function Returns An Error", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig)
+					// strategy that will return an error
+					prunerStrategy := func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+						return nil, fmt.Errorf("TESTERROR")
+					}
 
+					pruner, err := NewPruner(fakeClient, jobGVK, prunerStrategy, prunerConfig)
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					// Register our custom IsPrunableFunc
 					RegisterIsPrunableFunc(jobGVK, myIsPrunable)
 
-					// Override pruner strategy with one that will return an error
-					pruner.Strategy = func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
-						return nil, fmt.Errorf("TESTERROR")
-					}
-
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).ShouldNot(BeNil())
 					Expect(err.Error()).Should(Equal("error determining prunable objects: TESTERROR"))
 					Expect(prunedObjects).Should(BeNil())
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 				})
@@ -405,25 +404,22 @@ var _ = Describe("Prune", func() {
 				It("Should Return an Error if it can not Prune a Resource", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
-
 					Expect(err).Should(BeNil())
 
 					// Make sure the job resources are properly created
 					jobs := &unstructured.UnstructuredList{}
 					jobs.SetGroupVersionKind(jobGVK)
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner := NewPruner(fakeClient, prunerConfig, WithGVK(jobGVK))
-
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that returns nil but also deletes the object
 					// so that it will throw an error when attempting to remove the object
-					prunableFunc := func(obj client.Object) error {
+					prunableFunc := func(obj client.Object, logger logr.Logger) error {
 						_ = fakeClient.Delete(context.TODO(), obj, &client.DeleteOptions{})
 						return nil
 					}
@@ -432,14 +428,12 @@ var _ = Describe("Prune", func() {
 					RegisterIsPrunableFunc(jobGVK, prunableFunc)
 
 					prunedObjects, err := pruner.Prune(context.Background())
-
 					Expect(err).ShouldNot(BeNil())
 					Expect(err.Error()).Should(ContainSubstring("error pruning object: jobs.batch \"churro1\" not found"))
 					Expect(len(prunedObjects)).Should(Equal(0))
 
 					// Get a list of the jobs to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
-
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(0))
 				})
@@ -464,9 +458,7 @@ var _ = Describe("Prune", func() {
 			pod.SetGroupVersionKind(podGVK)
 
 			// Run it through DefaultPodIsPrunable
-			err := DefaultPodIsPrunable(pod)
-
-			// Check that return is 'nil'
+			err := DefaultPodIsPrunable(pod, logr.Logger{})
 			Expect(err).Should(BeNil())
 		})
 
@@ -477,7 +469,7 @@ var _ = Describe("Prune", func() {
 			defer expectPanic()
 
 			// Run it through DefaultPodIsPrunable
-			_ = DefaultPodIsPrunable(notPod)
+			_ = DefaultPodIsPrunable(notPod, logr.Logger{})
 		})
 
 		It("Should Return An Error When Kind Is 'Pod' But Phase Is Not 'Succeeded'", func() {
@@ -495,9 +487,7 @@ var _ = Describe("Prune", func() {
 			pod.SetGroupVersionKind(podGVK)
 
 			// Run it through DefaultPodIsPrunable
-			err := DefaultPodIsPrunable(pod)
-
-			// Check that return is error
+			err := DefaultPodIsPrunable(pod, logr.Logger{})
 			Expect(err).ShouldNot(BeNil())
 			var expectErr *Unprunable
 			Expect(errors.As(err, &expectErr)).Should(BeTrue())
@@ -523,9 +513,7 @@ var _ = Describe("Prune", func() {
 			job.SetGroupVersionKind(jobGVK)
 
 			// Run it through DefaultJobIsPrunable
-			err := DefaultJobIsPrunable(job)
-
-			// Check that return is 'nil'
+			err := DefaultJobIsPrunable(job, logr.Logger{})
 			Expect(err).Should(BeNil())
 		})
 
@@ -536,7 +524,7 @@ var _ = Describe("Prune", func() {
 			defer expectPanic()
 
 			// Run it through DefaultJobIsPrunable
-			_ = DefaultJobIsPrunable(notJob)
+			_ = DefaultJobIsPrunable(notJob, logr.Logger{})
 		})
 
 		It("Should Return An Error When Kind Is 'Job' But 'CompletionTime' is 'nil'", func() {
@@ -554,9 +542,7 @@ var _ = Describe("Prune", func() {
 			job.SetGroupVersionKind(jobGVK)
 
 			// Run it through DefaultJobIsPrunable
-			err := DefaultJobIsPrunable(job)
-
-			// Check that return is error
+			err := DefaultJobIsPrunable(job, logr.Logger{})
 			Expect(err).ShouldNot(BeNil())
 			var expectErr *Unprunable
 			Expect(errors.As(err, &expectErr)).Should(BeTrue())
@@ -569,7 +555,7 @@ var _ = Describe("Prune", func() {
 })
 
 // create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
-func createTestPods(client client.Client) (err error) {
+func createTestPods(client client.Client) error {
 	// some defaults
 	ns := namespace
 	appLabel := app
@@ -593,8 +579,8 @@ func createTestPods(client client.Client) (err error) {
 			},
 		})
 		pod.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Pod"))
-		err = client.Create(context.Background(), pod)
 
+		err := client.Create(context.Background(), pod)
 		if err != nil {
 			return err
 		}
@@ -604,7 +590,7 @@ func createTestPods(client client.Client) (err error) {
 }
 
 // create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
-func createTestJobs(client client.Client) (err error) {
+func createTestJobs(client client.Client) error {
 	// some defaults
 	ns := namespace
 	appLabel := app
@@ -628,8 +614,8 @@ func createTestJobs(client client.Client) (err error) {
 			},
 		})
 		job.SetGroupVersionKind(batchv1.SchemeGroupVersion.WithKind("Job"))
-		err = client.Create(context.Background(), job)
 
+		err := client.Create(context.Background(), job)
 		if err != nil {
 			return err
 		}
@@ -641,7 +627,6 @@ func createTestJobs(client client.Client) (err error) {
 // createSchemes is a helper function to set up the schemes needed to run
 // our tests utilizing controller-runtime's fake client
 func createSchemes() (*runtime.Scheme, error) {
-
 	corev1SchemeBuilder := &scheme.Builder{GroupVersion: corev1.SchemeGroupVersion}
 	corev1SchemeBuilder.Register(&corev1.Pod{}, &corev1.PodList{})
 
@@ -684,12 +669,11 @@ func myStrategy(ctx context.Context, objs []client.Object) ([]client.Object, err
 // that is expected to panic is called
 func expectPanic() {
 	r := recover()
-
 	Expect(r).ShouldNot(BeNil())
 }
 
 // myIsPrunable shows how you can write your own IsPrunableFunc
 // In this example it simply removes all resources
-func myIsPrunable(obj client.Object) error {
+func myIsPrunable(obj client.Object, logger logr.Logger) error {
 	return nil
 }
