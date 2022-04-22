@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
@@ -143,7 +144,16 @@ var _ = Describe("Prune", func() {
 
 		Describe("Prune()", func() {
 			Context("Does not return an Error", func() {
-				It("Should Prune Pods with Default IsPrunableFunc", func() { //nolint:dupl
+				testPruneWithDefaultIsPrunableFunc := func(gvk schema.GroupVersionKind) {
+					pruner, err := NewPruner(fakeClient, gvk, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
+					Expect(err).Should(BeNil())
+					Expect(pruner).ShouldNot(BeNil())
+
+					prunedObjects, err := pruner.Prune(context.Background())
+					Expect(err).Should(BeNil())
+					Expect(len(prunedObjects)).Should(Equal(2))
+				}
+				It("Should Prune Pods with Default IsPrunableFunc", func() {
 					// Create the test resources - in this case Pods
 					err := createTestPods(fakeClient)
 					Expect(err).Should(BeNil())
@@ -155,13 +165,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
-					Expect(err).Should(BeNil())
-					Expect(pruner).ShouldNot(BeNil())
-
-					prunedObjects, err := pruner.Prune(context.Background())
-					Expect(err).Should(BeNil())
-					Expect(len(prunedObjects)).Should(Equal(2))
+					testPruneWithDefaultIsPrunableFunc(podGVK)
 
 					// Get a list of the Pods to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), pods)
@@ -169,7 +173,7 @@ var _ = Describe("Prune", func() {
 					Expect(len(pods.Items)).Should(Equal(1))
 				})
 
-				It("Should Prune Jobs with Default IsPrunableFunc", func() { //nolint:dupl
+				It("Should Prune Jobs with Default IsPrunableFunc", func() {
 					// Create the test resources - in this case Jobs
 					err := createTestJobs(fakeClient)
 					Expect(err).Should(BeNil())
@@ -181,13 +185,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
-					Expect(err).Should(BeNil())
-					Expect(pruner).ShouldNot(BeNil())
-
-					prunedObjects, err := pruner.Prune(context.Background())
-					Expect(err).Should(BeNil())
-					Expect(len(prunedObjects)).Should(Equal(2))
+					testPruneWithDefaultIsPrunableFunc(jobGVK)
 
 					// Get a list of the job to make sure we have pruned the ones we expected
 					err = fakeClient.List(context.Background(), jobs)
@@ -399,6 +397,33 @@ var _ = Describe("Prune", func() {
 
 			})
 		})
+
+		Describe("GVK()", func() {
+			It("Should return the GVK field in the Pruner", func() {
+				pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
+				Expect(err).Should(BeNil())
+				Expect(pruner).ShouldNot(BeNil())
+				Expect(pruner.GVK()).Should(Equal(podGVK))
+			})
+		})
+
+		Describe("Labels()", func() {
+			It("Should return the Labels field in the Pruner", func() {
+				pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithLabels(appLabels))
+				Expect(err).Should(BeNil())
+				Expect(pruner).ShouldNot(BeNil())
+				Expect(pruner.Labels()).Should(Equal(appLabels))
+			})
+		})
+
+		Describe("Namespace()", func() {
+			It("Should return the Namespace field in the Pruner", func() {
+				pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithNamespace(namespace))
+				Expect(err).Should(BeNil())
+				Expect(pruner).ShouldNot(BeNil())
+				Expect(pruner.Namespace()).Should(Equal(namespace))
+			})
+		})
 	})
 
 	Context("DefaultPodIsPrunable", func() {
@@ -511,32 +536,38 @@ var _ = Describe("Prune", func() {
 		})
 	})
 
-	Describe("GVK()", func() {
-		It("Should return the GVK field in the Pruner", func() {
-			pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
+	Context("NewPruneByCountStrategy", func() {
+		resources := createDatedResources()
+		It("Should return the 3 oldest resources", func() {
+			resourcesToRemove, err := NewPruneByCountStrategy(2)(context.Background(), resources)
 			Expect(err).Should(BeNil())
-			Expect(pruner).ShouldNot(BeNil())
-			Expect(pruner.GVK()).Should(Equal(podGVK))
+			Expect(resourcesToRemove).Should(Equal(resources[2:]))
+		})
+
+		It("Should return nil", func() {
+			resourcesToRemove, err := NewPruneByCountStrategy(5)(context.Background(), resources)
+			Expect(err).Should(BeNil())
+			Expect(resourcesToRemove).Should(BeNil())
 		})
 	})
 
-	Describe("Labels()", func() {
-		It("Should return the Labels field in the Pruner", func() {
-			pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithLabels(appLabels))
+	Context("NewPruneByDateStrategy", func() {
+		resources := createDatedResources()
+		It("Should return 2 resources", func() {
+			date := time.Now().Add(time.Hour * time.Duration(2))
+			resourcesToRemove, err := NewPruneByDateStrategy(date)(context.Background(), resources)
 			Expect(err).Should(BeNil())
-			Expect(pruner).ShouldNot(BeNil())
-			Expect(pruner.Labels()).Should(Equal(appLabels))
+			Expect(len(resourcesToRemove)).Should(Equal(2))
+		})
+
+		It("Should return 0 resources", func() {
+			date := time.Now().Add(time.Hour * time.Duration(24))
+			resourcesToRemove, err := NewPruneByDateStrategy(date)(context.Background(), resources)
+			Expect(err).Should(BeNil())
+			Expect(len(resourcesToRemove)).Should(Equal(0))
 		})
 	})
 
-	Describe("Namespace()", func() {
-		It("Should return the Namespace field in the Pruner", func() {
-			pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithNamespace(namespace))
-			Expect(err).Should(BeNil())
-			Expect(pruner).ShouldNot(BeNil())
-			Expect(pruner.Namespace()).Should(Equal(namespace))
-		})
-	})
 })
 
 // TODO(everettraven): Remove once https://github.com/kubernetes-sigs/controller-runtime/pull/1873 is released
@@ -593,10 +624,6 @@ func createTestPods(client client.Client) error {
 
 // create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
 func createTestJobs(client client.Client) error {
-	// some defaults
-	ns := namespace
-	appLabel := app
-
 	// Due to some weirdness in the way the fake client is set up we need to create our
 	// Kubernetes objects via the unstructured.Unstructured method
 	for i := 0; i < 3; i++ {
@@ -606,9 +633,9 @@ func createTestJobs(client client.Client) error {
 			"kind":       "Job",
 			"metadata": map[string]interface{}{
 				"name":      fmt.Sprintf("churro%d", i),
-				"namespace": ns,
+				"namespace": namespace,
 				"labels": map[string]interface{}{
-					"app": appLabel,
+					"app": app,
 				},
 			},
 			"status": map[string]interface{}{
@@ -624,6 +651,35 @@ func createTestJobs(client client.Client) error {
 	}
 
 	return nil
+}
+
+// createDatedResources is a helper function to get an array of client.Object that have
+// different CreationTimestamps to test the common strategy functions
+func createDatedResources() []client.Object {
+	var jobs []client.Object
+	for i := 0; i < 5; i++ {
+		job := &unstructured.Unstructured{}
+		job.SetUnstructuredContent(map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+			"metadata": map[string]interface{}{
+				"name":      fmt.Sprintf("churro%d", i),
+				"namespace": namespace,
+				"labels": map[string]interface{}{
+					"app": app,
+				},
+			},
+			"status": map[string]interface{}{
+				"completionTime": metav1.Now(),
+			},
+		})
+		job.SetGroupVersionKind(batchv1.SchemeGroupVersion.WithKind("Job"))
+		job.SetCreationTimestamp(metav1.NewTime(time.Now().Add(time.Hour * time.Duration(i))))
+
+		jobs = append(jobs, job)
+	}
+
+	return jobs
 }
 
 // createSchemes is a helper function to set up the schemes needed to run
