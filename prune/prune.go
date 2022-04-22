@@ -123,12 +123,9 @@ func (p Pruner) Namespace() string {
 
 // NewPruner returns a pruner that uses the given strategy to prune objects that have the given GVK
 func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (Pruner, error) {
-	// check for nil explicit parameters
-	// if gvk.Group == "" then it maps to the 'core' Group
-	if prunerClient == nil ||
-		(gvk.Version == "" || gvk.Kind == "") ||
-		strategy == nil {
-		return Pruner{}, fmt.Errorf("error creating a new Pruner: explicit parameters cannot be nil or contain empty values")
+
+	if gvk.Empty() {
+		return Pruner{}, fmt.Errorf("error when creating a new Pruner: gvk parameter can not be empty")
 	}
 
 	pruner := Pruner{

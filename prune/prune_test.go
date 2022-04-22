@@ -104,72 +104,40 @@ var _ = Describe("Prune", func() {
 	})
 	Describe("Pruner", func() {
 		Describe("NewPruner()", func() {
-			Context("Successful", func() {
-				It("Should Return a New Pruner Object", func() {
-					pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
-					Expect(err).Should(BeNil())
-					Expect(pruner).ShouldNot(BeNil())
-				})
-
-				It("Should Return a New Pruner Object with Custom Configuration", func() {
-					namespace := "namespace"
-					labels := map[string]string{"app": "churro"}
-					logger := &logr.Logger{}
-					pruner, err := NewPruner(fakeClient,
-						jobGVK,
-						myStrategy,
-						WithNamespace(namespace),
-						WithLabels(labels),
-						WithLogger(*logger))
-
-					Expect(err).Should(BeNil())
-					Expect(pruner).ShouldNot(BeNil())
-					Expect(&pruner.registry).Should(Equal(DefaultRegistry()))
-					Expect(pruner.namespace).Should(Equal(namespace))
-					Expect(pruner.labels).Should(Equal(labels))
-					Expect(&pruner.logger).Should(Equal(logger))
-					Expect(pruner.strategy).ShouldNot(BeNil())
-					Expect(pruner.gvk).Should(Equal(jobGVK))
-					Expect(pruner.client).Should(Equal(fakeClient))
-				})
+			It("Should Return a New Pruner Object", func() {
+				pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
+				Expect(err).Should(BeNil())
+				Expect(pruner).ShouldNot(BeNil())
 			})
 
-			Context("Errors", func() {
-				errorString := "error creating a new Pruner: explicit parameters cannot be nil or contain empty values"
+			It("Should Return a New Pruner Object with Custom Configuration", func() {
+				namespace := "namespace"
+				labels := map[string]string{"app": "churro"}
+				logger := &logr.Logger{}
+				pruner, err := NewPruner(fakeClient,
+					jobGVK,
+					myStrategy,
+					WithNamespace(namespace),
+					WithLabels(labels),
+					WithLogger(*logger))
 
-				It("Should Error if client.Client Parameter is nil", func() {
-					pruner, err := NewPruner(nil, podGVK, myStrategy)
-					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal(errorString))
-					Expect(pruner).ShouldNot(BeNil())
-				})
+				Expect(err).Should(BeNil())
+				Expect(pruner).ShouldNot(BeNil())
+				Expect(&pruner.registry).Should(Equal(DefaultRegistry()))
+				Expect(pruner.namespace).Should(Equal(namespace))
+				Expect(pruner.labels).Should(Equal(labels))
+				Expect(&pruner.logger).Should(Equal(logger))
+				Expect(pruner.strategy).ShouldNot(BeNil())
+				Expect(pruner.gvk).Should(Equal(jobGVK))
+				Expect(pruner.client).Should(Equal(fakeClient))
+			})
 
-				It("Should Error if schema.GroupVersionKind Parameter fields have empty values", func() {
-					// empty GVK struct
-					pruner, err := NewPruner(fakeClient, schema.GroupVersionKind{}, myStrategy)
-					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal(errorString))
-					Expect(pruner).ShouldNot(BeNil())
-
-					// empty Version
-					pruner, err = NewPruner(fakeClient, schema.GroupVersionKind{Group: "group", Kind: "kind"}, myStrategy)
-					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal(errorString))
-					Expect(pruner).ShouldNot(BeNil())
-
-					// empty Kind
-					pruner, err = NewPruner(fakeClient, schema.GroupVersionKind{Group: "group", Version: "version"}, myStrategy)
-					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal(errorString))
-					Expect(pruner).ShouldNot(BeNil())
-				})
-
-				It("Should Error if StrategyFunc parameter is nil", func() {
-					pruner, err := NewPruner(fakeClient, podGVK, nil)
-					Expect(err).ShouldNot(BeNil())
-					Expect(err.Error()).Should(Equal(errorString))
-					Expect(pruner).ShouldNot(BeNil())
-				})
+			It("Should Error if schema.GroupVersionKind Parameter is empty", func() {
+				// empty GVK struct
+				pruner, err := NewPruner(fakeClient, schema.GroupVersionKind{}, myStrategy)
+				Expect(err).ShouldNot(BeNil())
+				Expect(err.Error()).Should(Equal("error when creating a new Pruner: gvk parameter can not be empty"))
+				Expect(pruner).ShouldNot(BeNil())
 			})
 		})
 
@@ -268,7 +236,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					dryRunClient := client.NewDryRunClient(fakeClient)
+					dryRunClient := newDryRunClient(fakeClient)
 					pruner, err := NewPruner(dryRunClient, podGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
@@ -543,7 +511,50 @@ var _ = Describe("Prune", func() {
 		})
 	})
 
+	Describe("GVK()", func() {
+		It("Should return the GVK field in the Pruner", func() {
+			pruner, err := NewPruner(fakeClient, podGVK, myStrategy)
+			Expect(err).Should(BeNil())
+			Expect(pruner).ShouldNot(BeNil())
+			Expect(pruner.GVK()).Should(Equal(podGVK))
+		})
+	})
+
+	Describe("Labels()", func() {
+		It("Should return the Labels field in the Pruner", func() {
+			pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithLabels(appLabels))
+			Expect(err).Should(BeNil())
+			Expect(pruner).ShouldNot(BeNil())
+			Expect(pruner.Labels()).Should(Equal(appLabels))
+		})
+	})
+
+	Describe("Namespace()", func() {
+		It("Should return the Namespace field in the Pruner", func() {
+			pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithNamespace(namespace))
+			Expect(err).Should(BeNil())
+			Expect(pruner).ShouldNot(BeNil())
+			Expect(pruner.Namespace()).Should(Equal(namespace))
+		})
+	})
 })
+
+// TODO(everettraven): Remove once https://github.com/kubernetes-sigs/controller-runtime/pull/1873 is released
+//---
+type dryRunClient struct {
+	client.Client
+}
+
+func newDryRunClient(baseClient client.Client) client.Client {
+	return dryRunClient{client.NewDryRunClient(baseClient)}
+}
+
+// Delete implements a dry run delete, that is currently broken in the latest release.
+func (c dryRunClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	return nil
+}
+
+//---
 
 // create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
 func createTestPods(client client.Client) error {
