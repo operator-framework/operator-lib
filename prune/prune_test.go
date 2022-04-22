@@ -38,13 +38,14 @@ import (
 const namespace = "default"
 const app = "churro"
 
+var appLabels = map[string]string{"app": app}
+
 var _ = Describe("Prune", func() {
 	var (
-		fakeClient   client.Client
-		fakeObj      client.Object
-		prunerConfig PrunerOption
-		podGVK       schema.GroupVersionKind
-		jobGVK       schema.GroupVersionKind
+		fakeClient client.Client
+		fakeObj    client.Object
+		podGVK     schema.GroupVersionKind
+		jobGVK     schema.GroupVersionKind
 	)
 	BeforeEach(func() {
 		testScheme, err := createSchemes()
@@ -52,16 +53,6 @@ var _ = Describe("Prune", func() {
 
 		fakeClient = crFake.NewClientBuilder().WithScheme(testScheme).Build()
 		fakeObj = &corev1.Pod{}
-
-		// Create our function to configure our pruner
-		prunerConfig = func(p *Pruner) {
-			// Create the labels we want to select with
-			labels := make(map[string]string)
-			labels["app"] = app
-
-			p.labels = labels
-			p.namespace = namespace
-		}
 
 		podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
 		jobGVK = batchv1.SchemeGroupVersion.WithKind("Job")
@@ -196,7 +187,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, podGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, podGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -222,7 +213,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -248,7 +239,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -278,7 +269,7 @@ var _ = Describe("Prune", func() {
 					Expect(len(pods.Items)).Should(Equal(3))
 
 					dryRunClient := client.NewDryRunClient(fakeClient)
-					pruner, err := NewPruner(dryRunClient, podGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(dryRunClient, podGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -304,7 +295,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -343,7 +334,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -383,7 +374,7 @@ var _ = Describe("Prune", func() {
 						return nil, fmt.Errorf("TESTERROR")
 					}
 
-					pruner, err := NewPruner(fakeClient, jobGVK, prunerStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, prunerStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
@@ -413,7 +404,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(jobs.Items)).Should(Equal(3))
 
-					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, prunerConfig)
+					pruner, err := NewPruner(fakeClient, jobGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
 
