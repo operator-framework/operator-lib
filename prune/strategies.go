@@ -35,7 +35,7 @@ func NewPruneByCountStrategy(count int) StrategyFunc {
 		// sort objects by creation date
 		sortedObjs := objs
 
-		sort.SliceStable(sortedObjs, func(i, j int) bool {
+		sort.Slice(sortedObjs, func(i, j int) bool {
 			iTimestamp := sortedObjs[i].GetCreationTimestamp()
 			jTimestamp := sortedObjs[j].GetCreationTimestamp()
 			return iTimestamp.Before(&jTimestamp)
