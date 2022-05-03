@@ -133,7 +133,7 @@ var _ = Describe("Prune", func() {
 				pruner, err := NewPruner(fakeClient, schema.GroupVersionKind{}, myStrategy)
 				Expect(err).ShouldNot(BeNil())
 				Expect(err.Error()).Should(Equal("error when creating a new Pruner: gvk parameter can not be empty"))
-				Expect(pruner).ShouldNot(BeNil())
+				Expect(pruner).Should(BeNil())
 			})
 		})
 

@@ -110,10 +110,10 @@ func (p Pruner) Namespace() string {
 }
 
 // NewPruner returns a pruner that uses the given strategy to prune objects that have the given GVK
-func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (Pruner, error) {
+func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (*Pruner, error) {
 
 	if gvk.Empty() {
-		return Pruner{}, fmt.Errorf("error when creating a new Pruner: gvk parameter can not be empty")
+		return nil, fmt.Errorf("error when creating a new Pruner: gvk parameter can not be empty")
 	}
 
 	pruner := Pruner{
@@ -127,7 +127,7 @@ func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy
 		opt(&pruner)
 	}
 
-	return pruner, nil
+	return &pruner, nil
 }
 
 // Prune runs the pruner.
@@ -174,6 +174,8 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 	return objsToPrune, nil
 }
 
+// IsUnprunable checks if a given error is that of Unprunable.
+// Returns true if the given error is of type Unprunable, and false if it is not
 func IsUnprunable(target error) bool {
 	var unprunable *Unprunable
 	return errors.As(target, &unprunable)
