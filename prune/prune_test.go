@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -98,7 +97,7 @@ var _ = Describe("Prune", func() {
 					Kind:    "NotReal",
 				})
 
-				Expect(NewRegistry().IsPrunable(obj, logr.Logger{})).Should(BeNil())
+				Expect(NewRegistry().IsPrunable(obj)).Should(BeNil())
 			})
 		})
 
@@ -114,20 +113,16 @@ var _ = Describe("Prune", func() {
 			It("Should Return a New Pruner Object with Custom Configuration", func() {
 				namespace := "namespace"
 				labels := map[string]string{"app": "churro"}
-				logger := &logr.Logger{}
 				pruner, err := NewPruner(fakeClient,
 					jobGVK,
 					myStrategy,
 					WithNamespace(namespace),
-					WithLabels(labels),
-					WithLogger(*logger))
-
+					WithLabels(labels))
 				Expect(err).Should(BeNil())
 				Expect(pruner).ShouldNot(BeNil())
 				Expect(&pruner.registry).Should(Equal(DefaultRegistry()))
 				Expect(pruner.namespace).Should(Equal(namespace))
 				Expect(pruner.labels).Should(Equal(labels))
-				Expect(&pruner.logger).Should(Equal(logger))
 				Expect(pruner.strategy).ShouldNot(BeNil())
 				Expect(pruner.gvk).Should(Equal(jobGVK))
 				Expect(pruner.client).Should(Equal(fakeClient))
@@ -266,7 +261,7 @@ var _ = Describe("Prune", func() {
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that throws Unprunable error
-					errorPrunableFunc := func(obj client.Object, logger logr.Logger) error {
+					errorPrunableFunc := func(obj client.Object) error {
 						return &Unprunable{
 							Obj:    &obj,
 							Reason: "TEST",
@@ -305,7 +300,7 @@ var _ = Describe("Prune", func() {
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that throws non Unprunable error
-					errorPrunableFunc := func(obj client.Object, logger logr.Logger) error {
+					errorPrunableFunc := func(obj client.Object) error {
 						return fmt.Errorf("TEST")
 					}
 
@@ -376,7 +371,7 @@ var _ = Describe("Prune", func() {
 
 					// IsPrunableFunc that returns nil but also deletes the object
 					// so that it will throw an error when attempting to remove the object
-					prunableFunc := func(obj client.Object, logger logr.Logger) error {
+					prunableFunc := func(obj client.Object) error {
 						_ = fakeClient.Delete(context.TODO(), obj, &client.DeleteOptions{})
 						return nil
 					}
@@ -442,7 +437,7 @@ var _ = Describe("Prune", func() {
 			pod.SetGroupVersionKind(podGVK)
 
 			// Run it through DefaultPodIsPrunable
-			err := DefaultPodIsPrunable(pod, logr.Logger{})
+			err := DefaultPodIsPrunable(pod)
 			Expect(err).Should(BeNil())
 		})
 
@@ -453,7 +448,7 @@ var _ = Describe("Prune", func() {
 			defer expectPanic()
 
 			// Run it through DefaultPodIsPrunable
-			_ = DefaultPodIsPrunable(notPod, logr.Logger{})
+			_ = DefaultPodIsPrunable(notPod)
 		})
 
 		It("Should Return An Error When Kind Is 'Pod' But Phase Is Not 'Succeeded'", func() {
@@ -471,7 +466,7 @@ var _ = Describe("Prune", func() {
 			pod.SetGroupVersionKind(podGVK)
 
 			// Run it through DefaultPodIsPrunable
-			err := DefaultPodIsPrunable(pod, logr.Logger{})
+			err := DefaultPodIsPrunable(pod)
 			Expect(err).ShouldNot(BeNil())
 			var expectErr *Unprunable
 			Expect(errors.As(err, &expectErr)).Should(BeTrue())
@@ -497,7 +492,7 @@ var _ = Describe("Prune", func() {
 			job.SetGroupVersionKind(jobGVK)
 
 			// Run it through DefaultJobIsPrunable
-			err := DefaultJobIsPrunable(job, logr.Logger{})
+			err := DefaultJobIsPrunable(job)
 			Expect(err).Should(BeNil())
 		})
 
@@ -508,7 +503,7 @@ var _ = Describe("Prune", func() {
 			defer expectPanic()
 
 			// Run it through DefaultJobIsPrunable
-			_ = DefaultJobIsPrunable(notJob, logr.Logger{})
+			_ = DefaultJobIsPrunable(notJob)
 		})
 
 		It("Should Return An Error When Kind Is 'Job' But 'CompletionTime' is 'nil'", func() {
@@ -526,7 +521,7 @@ var _ = Describe("Prune", func() {
 			job.SetGroupVersionKind(jobGVK)
 
 			// Run it through DefaultJobIsPrunable
-			err := DefaultJobIsPrunable(job, logr.Logger{})
+			err := DefaultJobIsPrunable(job)
 			Expect(err).ShouldNot(BeNil())
 			var expectErr *Unprunable
 			Expect(errors.As(err, &expectErr)).Should(BeTrue())
@@ -732,6 +727,6 @@ func expectPanic() {
 
 // myIsPrunable shows how you can write your own IsPrunableFunc
 // In this example it simply removes all resources
-func myIsPrunable(obj client.Object, logger logr.Logger) error {
+func myIsPrunable(obj client.Object) error {
 	return nil
 }

@@ -15,7 +15,6 @@
 package prune
 
 import (
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -48,13 +47,13 @@ func (r *Registry) RegisterIsPrunableFunc(gvk schema.GroupVersionKind, isPrunabl
 }
 
 // IsPrunable checks if an object is prunable
-func (r *Registry) IsPrunable(obj client.Object, logger logr.Logger) error {
+func (r *Registry) IsPrunable(obj client.Object) error {
 	isPrunable, ok := r.prunables[obj.GetObjectKind().GroupVersionKind()]
 	if !ok {
 		return nil
 	}
 
-	return isPrunable(obj, logger)
+	return isPrunable(obj)
 }
 
 // RegisterIsPrunableFunc registers a function to check whether it is safe to prune a resource of a certain type.

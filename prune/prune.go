@@ -19,14 +19,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -58,9 +56,6 @@ type Pruner struct {
 
 	// namespace is the namespace to use when looking for resources
 	namespace string
-
-	// logger is the logger to use when running pruning functionality
-	logger logr.Logger
 }
 
 // Unprunable indicates that it is not allowed to prune a specific object.
@@ -80,7 +75,7 @@ type StrategyFunc func(ctx context.Context, objs []client.Object) ([]client.Obje
 // IsPrunableFunc is a function that checks the data of an object to see whether or not it is safe to prune it.
 // It should return `nil` if it is safe to prune, `Unprunable` if it is unsafe, or another error.
 // It should safely assert the object is the expected type, otherwise it might panic.
-type IsPrunableFunc func(obj client.Object, logger logr.Logger) error
+type IsPrunableFunc func(obj client.Object) error
 
 // PrunerOption configures the pruner.
 type PrunerOption func(p *Pruner)
@@ -89,13 +84,6 @@ type PrunerOption func(p *Pruner)
 func WithNamespace(namespace string) PrunerOption {
 	return func(p *Pruner) {
 		p.namespace = namespace
-	}
-}
-
-// WithLogger can be used to set the Logger field when configuring a Pruner
-func WithLogger(logger logr.Logger) PrunerOption {
-	return func(p *Pruner) {
-		p.logger = logger
 	}
 }
 
@@ -131,7 +119,6 @@ func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy
 	pruner := Pruner{
 		registry: defaultRegistry,
 		client:   prunerClient,
-		logger:   Logger(context.Background(), Pruner{}),
 		gvk:      gvk,
 		strategy: strategy,
 	}
@@ -146,7 +133,6 @@ func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy
 // Prune runs the pruner.
 func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 	var objs []client.Object
-	p.logger.Info("Starting the pruning process...")
 	listOpts := client.ListOptions{
 		LabelSelector: labels.Set(p.labels).AsSelector(),
 		Namespace:     p.namespace,
@@ -164,8 +150,7 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 			return nil, err
 		}
 
-		if err := p.registry.IsPrunable(obj, p.logger); isUnprunable(err) {
-			p.logger.Info(fmt.Errorf("object is unprunable: %w", err).Error())
+		if err := p.registry.IsPrunable(obj); isUnprunable(err) {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -187,20 +172,6 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 	}
 
 	return objsToPrune, nil
-}
-
-// Logger returns a logger from the context using logr method or Config.Log if none is found
-// controller-runtime automatically provides a logger in context.Context during Reconcile calls.
-// Note that there is no compile time check whether a logger can be retrieved by either way.
-// keysAndValues allow to add fields to the logs, cf logr documentation.
-func Logger(ctx context.Context, pruner Pruner, keysAndValues ...interface{}) logr.Logger {
-	var log logr.Logger
-	if pruner.logger != (logr.Logger{}) {
-		log = pruner.logger
-	} else {
-		log = ctrllog.FromContext(ctx)
-	}
-	return log.WithValues(keysAndValues...)
 }
 
 func isUnprunable(target error) bool {
