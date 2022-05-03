@@ -150,7 +150,7 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 			return nil, err
 		}
 
-		if err := p.registry.IsPrunable(obj); isUnprunable(err) {
+		if err := p.registry.IsPrunable(obj); IsUnprunable(err) {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -174,7 +174,7 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 	return objsToPrune, nil
 }
 
-func isUnprunable(target error) bool {
+func IsUnprunable(target error) bool {
 	var unprunable *Unprunable
 	return errors.As(target, &unprunable)
 }
