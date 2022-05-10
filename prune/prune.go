@@ -16,184 +16,182 @@ package prune
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"time"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-// ResourceStatus describes the Kubernetes resource status we are evaluating
-type ResourceStatus string
+func init() {
+	RegisterIsPrunableFunc(corev1.SchemeGroupVersion.WithKind("Pod"), DefaultPodIsPrunable)
 
-// Strategy describes the pruning strategy we want to employ
-type Strategy string
-
-const (
-	// CustomStrategy maximum age of a resource that is desired, Duration
-	CustomStrategy Strategy = "Custom"
-	// MaxAgeStrategy maximum age of a resource that is desired, Duration
-	MaxAgeStrategy Strategy = "MaxAge"
-	// MaxCountStrategy maximum number of a resource that is desired, int
-	MaxCountStrategy Strategy = "MaxCount"
-	// JobKind equates to a Kube Job resource kind
-	JobKind string = "Job"
-	// PodKind equates to a Kube Pod resource kind
-	PodKind string = "Pod"
-)
-
-// StrategyConfig holds settings unique to each pruning mode
-type StrategyConfig struct {
-	Mode            Strategy
-	MaxAgeSetting   string
-	MaxCountSetting int
-	CustomSettings  map[string]interface{}
+	RegisterIsPrunableFunc(batchv1.SchemeGroupVersion.WithKind("Job"), DefaultJobIsPrunable)
 }
 
-// StrategyFunc function allows a means to specify
-// custom prune strategies
-type StrategyFunc func(ctx context.Context, cfg Config, resources []ResourceInfo) ([]ResourceInfo, error)
+// Pruner is an object that runs a prune job.
+type Pruner struct {
+	registry Registry
 
-// PreDelete function is called before a resource is pruned
-type PreDelete func(ctx context.Context, cfg Config, something ResourceInfo) error
+	// client is the controller-runtime client that will be used
+	// To perform a dry run, use the controller-runtime DryRunClient
+	client client.Client
 
-// Config defines a pruning configuration and ultimately
-// determines what will get pruned
-type Config struct {
-	Clientset      kubernetes.Interface      // kube client used by pruning
-	LabelSelector  string                    //selector resources to prune
-	DryRun         bool                      //true only performs a check, not removals
-	Resources      []schema.GroupVersionKind //pods, jobs are supported
-	Namespaces     []string                  //empty means all namespaces
-	Strategy       StrategyConfig            //strategy for pruning, either age or max
-	CustomStrategy StrategyFunc              //custom strategy
-	PreDeleteHook  PreDelete                 //called before resource is deleteds
-	Log            logr.Logger               //optional: to overwrite the logger set at context level
+	// gvk is the type of objects to prune.
+	// It defaults to Pod
+	gvk schema.GroupVersionKind
+
+	// strategy is the function used to determine a list of resources that are pruneable
+	strategy StrategyFunc
+
+	// labels is a map of the labels to use for label matching when looking for resources
+	labels map[string]string
+
+	// namespace is the namespace to use when looking for resources
+	namespace string
 }
 
-// Execute causes the pruning work to be executed based on its configuration
-func (config Config) Execute(ctx context.Context) error {
-	log := Logger(ctx, config)
-	log.V(1).Info("Execute Prune")
+// Unprunable indicates that it is not allowed to prune a specific object.
+type Unprunable struct {
+	Obj    *client.Object
+	Reason string
+}
 
-	err := config.validate()
+// Error returns a string representation of an `Unprunable` error.
+func (e *Unprunable) Error() string {
+	return fmt.Sprintf("unable to prune %s: %s", client.ObjectKeyFromObject(*e.Obj), e.Reason)
+}
+
+// StrategyFunc takes a list of resources and returns the subset to prune.
+type StrategyFunc func(ctx context.Context, objs []client.Object) ([]client.Object, error)
+
+// IsPrunableFunc is a function that checks the data of an object to see whether or not it is safe to prune it.
+// It should return `nil` if it is safe to prune, `Unprunable` if it is unsafe, or another error.
+// It should safely assert the object is the expected type, otherwise it might panic.
+type IsPrunableFunc func(obj client.Object) error
+
+// PrunerOption configures the pruner.
+type PrunerOption func(p *Pruner)
+
+// WithNamespace can be used to set the Namespace field when configuring a Pruner
+func WithNamespace(namespace string) PrunerOption {
+	return func(p *Pruner) {
+		p.namespace = namespace
+	}
+}
+
+// WithLabels can be used to set the Labels field when configuring a Pruner
+func WithLabels(labels map[string]string) PrunerOption {
+	return func(p *Pruner) {
+		p.labels = labels
+	}
+}
+
+// GVK returns the schema.GroupVersionKind that the Pruner has set
+func (p Pruner) GVK() schema.GroupVersionKind {
+	return p.gvk
+}
+
+// Labels returns the labels that the Pruner is using to find resources to prune
+func (p Pruner) Labels() map[string]string {
+	return p.labels
+}
+
+// Namespace returns the namespace that the Pruner is using to find resources to prune
+func (p Pruner) Namespace() string {
+	return p.namespace
+}
+
+// NewPruner returns a pruner that uses the given strategy to prune objects that have the given GVK
+func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (*Pruner, error) {
+
+	if gvk.Empty() {
+		return nil, fmt.Errorf("error when creating a new Pruner: gvk parameter can not be empty")
+	}
+
+	pruner := Pruner{
+		registry: defaultRegistry,
+		client:   prunerClient,
+		gvk:      gvk,
+		strategy: strategy,
+	}
+
+	for _, opt := range opts {
+		opt(&pruner)
+	}
+
+	return &pruner, nil
+}
+
+// Prune runs the pruner.
+func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
+	var objs []client.Object
+	listOpts := client.ListOptions{
+		LabelSelector: labels.Set(p.labels).AsSelector(),
+		Namespace:     p.namespace,
+	}
+
+	var unstructuredObjs unstructured.UnstructuredList
+	unstructuredObjs.SetGroupVersionKind(p.gvk)
+	if err := p.client.List(ctx, &unstructuredObjs, &listOpts); err != nil {
+		return nil, fmt.Errorf("error getting a list of resources: %w", err)
+	}
+
+	for _, unsObj := range unstructuredObjs.Items {
+		obj, err := convert(p.client, p.gvk, &unsObj)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := p.registry.IsPrunable(obj); IsUnprunable(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
+		objs = append(objs, obj)
+	}
+
+	objsToPrune, err := p.strategy(ctx, objs)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error determining prunable objects: %w", err)
 	}
 
-	for i := 0; i < len(config.Resources); i++ {
-		var resourceList []ResourceInfo
-		var err error
-
-		if config.Resources[i].Kind == PodKind {
-			resourceList, err = config.getSucceededPods(ctx)
-			if err != nil {
-				return err
-			}
-			log.V(1).Info("pods ", "count", len(resourceList))
-		} else if config.Resources[i].Kind == JobKind {
-			resourceList, err = config.getCompletedJobs(ctx)
-			if err != nil {
-				return err
-			}
-			log.V(1).Info("jobs ", "count", len(resourceList))
-		}
-
-		var resourcesToRemove []ResourceInfo
-
-		switch config.Strategy.Mode {
-		case MaxAgeStrategy:
-			resourcesToRemove, err = pruneByMaxAge(ctx, config, resourceList)
-		case MaxCountStrategy:
-			resourcesToRemove, err = pruneByMaxCount(ctx, config, resourceList)
-		case CustomStrategy:
-			resourcesToRemove, err = config.CustomStrategy(ctx, config, resourceList)
-		default:
-			return fmt.Errorf("unknown strategy")
-		}
-		if err != nil {
-			return err
-		}
-
-		err = config.removeResources(ctx, resourcesToRemove)
-		if err != nil {
-			return err
+	// Prune the resources
+	for _, obj := range objsToPrune {
+		if err = p.client.Delete(ctx, obj); err != nil {
+			return nil, fmt.Errorf("error pruning object: %w", err)
 		}
 	}
 
-	log.V(1).Info("Prune completed")
-
-	return nil
+	return objsToPrune, nil
 }
 
-// containsString checks if a string is present in a slice
-func containsString(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
+// IsUnprunable checks if a given error is that of Unprunable.
+// Returns true if the given error is of type Unprunable, and false if it is not
+func IsUnprunable(target error) bool {
+	var unprunable *Unprunable
+	return errors.As(target, &unprunable)
 }
 
-// containsName checks if a string is present in a ResourceInfo slice
-func containsName(s []ResourceInfo, str string) bool {
-	for _, v := range s {
-		if v.Name == str {
-			return true
-		}
-	}
-
-	return false
-}
-func (config Config) validate() (err error) {
-
-	if config.CustomStrategy == nil && config.Strategy.Mode == CustomStrategy {
-		return fmt.Errorf("custom strategies require a strategy function to be specified")
-	}
-
-	if len(config.Namespaces) == 0 {
-		return fmt.Errorf("namespaces are required")
-	}
-
-	if containsString(config.Namespaces, "") {
-		return fmt.Errorf("empty namespace value not supported")
-	}
-
-	_, err = labels.Parse(config.LabelSelector)
+func convert(c client.Client, gvk schema.GroupVersionKind, obj client.Object) (client.Object, error) {
+	obj2, err := c.Scheme().New(gvk)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	objConverted := obj2.(client.Object)
+	if err := c.Scheme().Convert(obj, objConverted, nil); err != nil {
+		return nil, err
 	}
 
-	if config.Strategy.Mode == MaxAgeStrategy {
-		_, err = time.ParseDuration(config.Strategy.MaxAgeSetting)
-		if err != nil {
-			return err
-		}
-	}
-	if config.Strategy.Mode == MaxCountStrategy {
-		if config.Strategy.MaxCountSetting < 0 {
-			return fmt.Errorf("max count is required to be greater than or equal to 0")
-		}
-	}
-	return nil
-}
+	objConverted.GetObjectKind().SetGroupVersionKind(gvk)
 
-// Logger returns a logger from the context using logr method or Config.Log if none is found
-// controller-runtime automatically provides a logger in context.Context during Reconcile calls.
-// Note that there is no compile time check whether a logger can be retrieved by either way.
-// keysAndValues allow to add fields to the logs, cf logr documentation.
-func Logger(ctx context.Context, cfg Config, keysAndValues ...interface{}) logr.Logger {
-	var log logr.Logger
-	if cfg.Log != (logr.Logger{}) {
-		log = cfg.Log
-	} else {
-		log = ctrllog.FromContext(ctx)
-	}
-	return log.WithValues(keysAndValues...)
+	return objConverted, nil
 }
