@@ -229,7 +229,7 @@ var _ = Describe("Prune", func() {
 					Expect(err).Should(BeNil())
 					Expect(len(pods.Items)).Should(Equal(3))
 
-					dryRunClient := newDryRunClient(fakeClient)
+					dryRunClient := client.NewDryRunClient(fakeClient)
 					pruner, err := NewPruner(dryRunClient, podGVK, myStrategy, WithLabels(appLabels), WithNamespace(namespace))
 					Expect(err).Should(BeNil())
 					Expect(pruner).ShouldNot(BeNil())
@@ -564,23 +564,6 @@ var _ = Describe("Prune", func() {
 	})
 
 })
-
-// TODO(everettraven): Remove once https://github.com/kubernetes-sigs/controller-runtime/pull/1873 is released
-//---
-type dryRunClient struct {
-	client.Client
-}
-
-func newDryRunClient(baseClient client.Client) client.Client {
-	return dryRunClient{client.NewDryRunClient(baseClient)}
-}
-
-// Delete implements a dry run delete, that is currently broken in the latest release.
-func (c dryRunClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
-	return nil
-}
-
-//---
 
 // create 3 pods and 3 jobs with different start times (now, 2 days old, 4 days old)
 func createTestPods(client client.Client) error {
