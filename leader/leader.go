@@ -42,16 +42,17 @@ var readNamespace = utils.GetOperatorNamespace
 
 var log = logf.Log.WithName("leader")
 
-// maxBackoffInterval defines the maximum amount of time to wait between
+// defaultMaxBackoffInterval defines the default maximum amount of time to wait between
 // attempts to become the leader.
-const maxBackoffInterval = time.Second * 16
+const defaultMaxBackoffInterval = time.Second * 16
 
 // Option is a function that can modify Become's Config
 type Option func(*Config) error
 
 // Config defines the configuration for Become
 type Config struct {
-	Client crclient.Client
+	Client             crclient.Client
+	MaxBackoffInterval time.Duration
 }
 
 func (c *Config) setDefaults() error {
@@ -66,6 +67,12 @@ func (c *Config) setDefaults() error {
 			return err
 		}
 		c.Client = client
+	}
+
+	// Humans tend to understand a duration value as positive numbers. The constant
+	// defaultMaxBackoffInterval will overwrite the content to avoid an unintended behaviour.
+	if c.MaxBackoffInterval <= 0 {
+		c.MaxBackoffInterval = defaultMaxBackoffInterval
 	}
 	return nil
 }
@@ -195,7 +202,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 
 			select {
 			case <-time.After(wait.Jitter(backoff, .2)):
-				if backoff < maxBackoffInterval {
+				if backoff < config.MaxBackoffInterval {
 					backoff *= 2
 				}
 				continue
