@@ -33,26 +33,25 @@ var _ predicate.Predicate = NoGenerationPredicate{}
 // sigs.k8s.io/controller-runtime/pkg/predicate.GenerationChangedPredicate to allow update events on all potentially
 // changed objects, those that respect Generation semantics or those that do not:
 //
-//		import (
-//			corev1 "k8s.io/api/core/v1"
-//			appsv1 "k8s.io/api/apps/v1"
-//			ctrl "sigs.k8s.io/controller-runtime"
-//			"sigs.k8s.io/controller-runtime/pkg/event"
-//			ctrlpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
-//			libpredicate "github.com/operator-framework/operator-lib/predicate"
+//	import (
+//		corev1 "k8s.io/api/core/v1"
+//		appsv1 "k8s.io/api/apps/v1"
+//		ctrl "sigs.k8s.io/controller-runtime"
+//		"sigs.k8s.io/controller-runtime/pkg/event"
+//		ctrlpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
+//		libpredicate "github.com/operator-framework/operator-lib/predicate"
 //
-//			"github.com/example/my-operator/api/v1alpha1"
-//		)
+//		"github.com/example/my-operator/api/v1alpha1"
+//	)
 //
-//		func (r *MyTypeReconciler) SetupWithManager(mgr ctrl.Manager) error {
-//			return ctrl.NewControllerManagedBy(mgr).
-//				For(&v1alpha1.MyType{}).
-//				Owns(&corev1.Pod{}).				// Does not respect Generation.
-//				Owns(&appsv1.Deployment{}).	// Respects Generation.
-//				WithEventFilter(ctrlpredicate.Or(ctrlpredicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{})).
-//				Complete(r)
-//		}
-//
+//	func (r *MyTypeReconciler) SetupWithManager(mgr ctrl.Manager) error {
+//		return ctrl.NewControllerManagedBy(mgr).
+//			For(&v1alpha1.MyType{}).
+//			Owns(&corev1.Pod{}).				// Does not respect Generation.
+//			Owns(&appsv1.Deployment{}).	// Respects Generation.
+//			WithEventFilter(ctrlpredicate.Or(ctrlpredicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{})).
+//			Complete(r)
+//	}
 type NoGenerationPredicate struct {
 	predicate.Funcs
 }
