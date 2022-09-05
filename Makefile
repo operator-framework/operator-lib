@@ -2,7 +2,7 @@ SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -pa
 .DEFAULT_GOAL    := build
 
 build: $(SOURCES) ## Build Test
-	go build -i -ldflags="-s -w" ./...
+	go build -ldflags="-s -w" ./...
 
 lint: golangci-lint ## Run golangci-lint
 	@$(GOLANGCI_LINT) run
