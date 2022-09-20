@@ -2,7 +2,7 @@ SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -pa
 .DEFAULT_GOAL    := build
 
 build: $(SOURCES) ## Build Test
-	go build -i -ldflags="-s -w" ./...
+	go build -ldflags="-s -w" ./...
 
 lint: golangci-lint ## Run golangci-lint
 	@$(GOLANGCI_LINT) run
@@ -35,7 +35,7 @@ clean: ## Clean up your working environment
 	@rm -f cover.out
 
 GOLANGCI_LINT=./bin/golangci-lint
-GOLANGCI_LINT_VER=1.30.0
+GOLANGCI_LINT_VER=1.49.0
 golangci-lint:
 ifneq ($(GOLANGCI_LINT_VER), $(shell $(GOLANGCI_LINT) version 2>&1 | cut -d" " -f4))
 	@{ \
