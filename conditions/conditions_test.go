@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
