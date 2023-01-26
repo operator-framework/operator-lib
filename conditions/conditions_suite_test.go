@@ -17,13 +17,11 @@ package conditions
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
 func TestSource(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecsWithDefaultAndCustomReporters(t, "Conditions Suite", []Reporter{printer.NewlineReporter{}, printer.NewProwReporter("Conditions Suite")})
+	RunSpecs(t, "Conditions Suite")
 }
