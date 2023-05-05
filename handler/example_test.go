@@ -54,7 +54,7 @@ func ExampleNewPause() {
 	if err != nil {
 		os.Exit(1)
 	}
-	if err := c.Watch(&source.Kind{Type: &v1.Pod{}}, pause); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), pause); err != nil {
 		os.Exit(1)
 	}
 

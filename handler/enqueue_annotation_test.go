@@ -15,6 +15,8 @@
 package handler
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,13 +32,15 @@ import (
 )
 
 var _ = Describe("EnqueueRequestForAnnotation", func() {
+	var ctx = context.TODO()
+
 	var q workqueue.RateLimitingInterface
 	var instance EnqueueRequestForAnnotation
 	var pod *corev1.Pod
 	var podOwner *corev1.Pod
 
 	BeforeEach(func() {
-		q = controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{Interface: workqueue.New()}
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "biz",
@@ -67,7 +71,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: pod,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -95,7 +99,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -118,7 +122,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(0))
 		})
 		It("should not enqueue a Request if there is no Namespace and name annotation matching the specified object are found", func() {
@@ -136,7 +140,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(0))
 		})
 		It("should not enqueue a Request if there is no TypeAnnotation matching the specified Group and Kind", func() {
@@ -155,7 +159,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(0))
 		})
 		It("should enqueue a Request if there are no Namespace annotation matching the object", func() {
@@ -174,7 +178,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -198,7 +202,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: nd,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -215,7 +219,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: nd,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(0))
 		})
 	})
@@ -225,7 +229,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			evt := event.DeleteEvent{
 				Object: pod,
 			}
-			instance.Delete(evt, q)
+			instance.Delete(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -252,7 +256,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				ObjectNew: newPod,
 			}
 
-			instance.Update(evt, q)
+			instance.Update(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -274,7 +278,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				ObjectNew: newPod,
 			}
 
-			instance.Update(evt, q)
+			instance.Update(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 			i, _ := q.Get()
 
@@ -298,7 +302,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				Object: repl,
 			}
 
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 			Expect(q.Len()).To(Equal(0))
 
 			newRepl := repl.DeepCopy()
@@ -317,7 +321,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				ObjectNew: newRepl,
 			}
 
-			instance2.Update(evt2, q)
+			instance2.Update(ctx, evt2, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()
@@ -351,7 +355,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				ObjectOld: pod,
 				ObjectNew: newPod,
 			}
-			instance.Update(evt, q)
+			instance.Update(ctx, evt, q)
 			Expect(q.Len()).To(Equal(2))
 		})
 	})
@@ -361,7 +365,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			evt := event.GenericEvent{
 				Object: pod,
 			}
-			instance.Generic(evt, q)
+			instance.Generic(ctx, evt, q)
 			Expect(q.Len()).To(Equal(1))
 
 			i, _ := q.Get()

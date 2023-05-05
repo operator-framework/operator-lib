@@ -15,6 +15,8 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/operator-framework/operator-lib/handler/internal/metrics"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +33,8 @@ import (
 )
 
 var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
+	var ctx = context.TODO()
+
 	var q workqueue.RateLimitingInterface
 	var instance InstrumentedEnqueueRequestForObject
 	var pod *corev1.Pod
@@ -39,7 +43,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	registry.MustRegister(metrics.ResourceCreatedAt)
 
 	BeforeEach(func() {
-		q = controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{Interface: workqueue.New()}
 		instance = InstrumentedEnqueueRequestForObject{}
 		pod = &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{
@@ -60,7 +64,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			}
 
 			// test the create
-			instance.Create(evt, q)
+			instance.Create(ctx, evt, q)
 
 			// verify workqueue
 			Expect(q.Len()).To(Equal(1))
@@ -86,7 +90,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				evt := event.CreateEvent{
 					Object: pod,
 				}
-				instance.Create(evt, q)
+				instance.Create(ctx, evt, q)
 				Expect(q.Len()).To(Equal(1))
 			})
 			It("should enqueue a request & remove the metric on a DeleteEvent", func() {
@@ -95,7 +99,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				}
 
 				// test the delete
-				instance.Delete(evt, q)
+				instance.Delete(ctx, evt, q)
 
 				// verify workqueue
 				Expect(q.Len()).To(Equal(1))
@@ -120,7 +124,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				}
 
 				// test the delete
-				instance.Delete(evt, q)
+				instance.Delete(ctx, evt, q)
 
 				// verify workqueue
 				Expect(q.Len()).To(Equal(1))
@@ -155,7 +159,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			}
 
 			// test the update
-			instance.Update(evt, q)
+			instance.Update(ctx, evt, q)
 
 			// verify workqueue
 			Expect(q.Len()).To(Equal(1))
