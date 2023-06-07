@@ -15,6 +15,8 @@
 package annotation_test
 
 import (
+	"context"
+
 	"github.com/operator-framework/operator-lib/internal/annotation"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,12 +36,13 @@ var _ = Describe("filter", func() {
 	const annotationKey = "my.app/paused"
 
 	var (
+		ctx = context.TODO()
 		err error
 		q   workqueue.RateLimitingInterface
 		pod *corev1.Pod
 	)
 	BeforeEach(func() {
-		q = controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{Interface: workqueue.New()}
 
 		pod = &corev1.Pod{}
 		pod.SetName("foo")
@@ -70,28 +73,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeTrue())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeTrue())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeTrue())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeTrue())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -100,7 +103,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeFalse())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -117,28 +120,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeTrue())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeTrue())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeTrue())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeTrue())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -147,7 +150,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeFalse())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -164,28 +167,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeTrue())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeTrue())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeTrue())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeTrue())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -194,7 +197,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeFalse())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -214,7 +217,7 @@ var _ = Describe("filter", func() {
 					new.SetLabels(map[string]string{"id": "new"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the new object with a registered key and false value", func() {
@@ -224,7 +227,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the old object with a registered key and false value", func() {
@@ -234,7 +237,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the new object with a non-registered key and true value", func() {
@@ -244,7 +247,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the new object with a non-registered key and false value", func() {
@@ -254,7 +257,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 			})
@@ -264,7 +267,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the old object with a registered key", func() {
@@ -272,7 +275,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, nil)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives both objects with a registered key", func() {
@@ -281,7 +284,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the old object with a registered key and false value, and new with true", func() {
@@ -292,7 +295,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the old object having no annotations, and new with a registered key and true value", func() {
@@ -302,7 +305,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -333,28 +336,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeFalse())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeFalse())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeFalse())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeFalse())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -363,7 +366,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeCreateEventFor(pod)
 					Expect(pred.Create(e)).To(BeTrue())
-					hdlr.Create(e, q)
+					hdlr.Create(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -380,28 +383,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeFalse())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeFalse())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeFalse())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeFalse())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -410,7 +413,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeDeleteEventFor(pod)
 					Expect(pred.Delete(e)).To(BeTrue())
-					hdlr.Delete(e, q)
+					hdlr.Delete(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -427,28 +430,28 @@ var _ = Describe("filter", func() {
 				It("receives an event for an object not having any annotations", func() {
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeFalse())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeFalse())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and true value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeFalse())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives an event for an object with a non-registered key and false value", func() {
 					pod.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeFalse())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -457,7 +460,7 @@ var _ = Describe("filter", func() {
 					pod.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeGenericEventFor(pod)
 					Expect(pred.Generic(e)).To(BeTrue())
-					hdlr.Generic(e, q)
+					hdlr.Generic(ctx, e, q)
 					verifyQueueHasPod(q, pod)
 				})
 			})
@@ -477,7 +480,7 @@ var _ = Describe("filter", func() {
 					new.SetLabels(map[string]string{"id": "new"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the new object with a registered key and false value", func() {
@@ -487,7 +490,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the old object with a registered key and false value", func() {
@@ -497,7 +500,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the new object with a non-registered key and true value", func() {
@@ -507,7 +510,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{"my.app/foo": "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 				It("receives the new object with a non-registered key and false value", func() {
@@ -517,7 +520,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{"my.app/foo": "false"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeFalse())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueEmpty(q)
 				})
 			})
@@ -527,7 +530,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the old object with a registered key", func() {
@@ -535,7 +538,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, nil)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, old)
 				})
 				It("receives both objects with a registered key", func() {
@@ -544,7 +547,7 @@ var _ = Describe("filter", func() {
 					old.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the old object with a registered key and false value, and new with true", func() {
@@ -555,7 +558,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 				It("receives the old object having no annotations, and new with a registered key and true value", func() {
@@ -565,7 +568,7 @@ var _ = Describe("filter", func() {
 					new.SetAnnotations(map[string]string{annotationKey: "true"})
 					e = makeUpdateEventFor(old, new)
 					Expect(pred.Update(e)).To(BeTrue())
-					hdlr.Update(e, q)
+					hdlr.Update(ctx, e, q)
 					verifyQueueHasPod(q, new)
 				})
 			})

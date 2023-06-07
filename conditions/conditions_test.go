@@ -74,7 +74,7 @@ var _ = Describe("Condition", func() {
 			sch := runtime.NewScheme()
 			err = apiv2.AddToScheme(sch)
 			Expect(err).NotTo(HaveOccurred())
-			cl = fake.NewClientBuilder().WithScheme(sch).Build()
+			cl = fake.NewClientBuilder().WithScheme(sch).WithStatusSubresource(operatorCond).Build()
 
 			// create an operator Condition resource
 			err = cl.Create(ctx, operatorCond)
