@@ -6,7 +6,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
-	github.com/operator-framework/api v0.17.4-0.20230223191600-0131a6301e42
+	github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
 	k8s.io/api v0.27.2
