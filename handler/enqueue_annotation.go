@@ -89,6 +89,7 @@ var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation{}
 
 // Create implements EventHandler
 func (e *EnqueueRequestForAnnotation) Create(_ context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+	fmt.Println("handler annotations")
 	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
