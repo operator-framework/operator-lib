@@ -1,6 +1,6 @@
 module github.com/operator-framework/operator-lib
 
-go 1.21
+go 1.20
 
 require (
 	github.com/go-logr/logr v1.2.4
