@@ -33,7 +33,7 @@ jobs:
         go-version-file: "go.mod"
     - uses: golangci/golangci-lint-action@v3
       with:
-        version: v1.49
+        version: v1.51
         args: --timeout 5m
 
   go-apidiff:
