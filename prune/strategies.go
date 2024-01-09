@@ -27,7 +27,6 @@ import (
 // If the max count of resources is exceeded, the oldest resources are prioritized for pruning
 func NewPruneByCountStrategy(count int) StrategyFunc {
 	return func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
-
 		if len(objs) <= count {
 			return nil, nil
 		}

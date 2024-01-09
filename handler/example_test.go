@@ -18,14 +18,15 @@ import (
 	"context"
 	"os"
 
-	"github.com/operator-framework/operator-lib/handler"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/operator-framework/operator-lib/handler"
 )
 
 // This example applies the Pause handler to all incoming Pod events on a Pod controller.
@@ -54,7 +55,7 @@ func ExampleNewPause() {
 	if err != nil {
 		os.Exit(1)
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), pause); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), pause); err != nil {
 		os.Exit(1)
 	}
 

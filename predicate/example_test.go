@@ -18,13 +18,14 @@ import (
 	"context"
 	"os"
 
-	"github.com/operator-framework/operator-lib/predicate"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/operator-framework/operator-lib/predicate"
 )
 
 // This example applies the Pause predicate to all incoming Pod events on a Pod controller.
@@ -50,7 +51,7 @@ func ExampleNewPause() {
 		os.Exit(1)
 	}
 	pred := builder.WithPredicates(pause)
-	if err := builder.ControllerManagedBy(mgr).For(&v1.Pod{}, pred).Complete(r); err != nil {
+	if err := builder.ControllerManagedBy(mgr).For(&corev1.Pod{}, pred).Complete(r); err != nil {
 		os.Exit(1)
 	}
 
