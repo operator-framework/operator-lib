@@ -1,6 +1,9 @@
 SOURCES          := $(shell find . -name '*.go' -not -path "*/vendor/*" -not -path "*/.git/*")
 .DEFAULT_GOAL    := build
 
+# bingo manages consistent tooling versions for things like kind, kustomize, etc.
+include .bingo/Variables.mk
+
 build: $(SOURCES) ## Build Test
 	go build -ldflags="-s -w" ./...
 
@@ -33,16 +36,6 @@ check: tidy fmtcheck vet lint build test check-license ## Pre-flight checks befo
 
 clean: ## Clean up your working environment
 	@rm -f cover.out
-
-GOLANGCI_LINT=./bin/golangci-lint
-GOLANGCI_LINT_VER=1.51.0
-golangci-lint:
-ifneq ($(GOLANGCI_LINT_VER), $(shell $(GOLANGCI_LINT) version 2>&1 | cut -d" " -f4))
-	@{ \
-	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b bin v$(GOLANGCI_LINT_VER) ;\
-	}
-endif
 
 # generate: ## regenerate mocks
 #     go get github.com/vektra/mockery/.../
