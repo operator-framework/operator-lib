@@ -64,25 +64,21 @@ var _ = Describe("Condition", func() {
 			}
 
 			// Create Operator Condition
-			err := os.Setenv(operatorCondEnvVar, "operator-condition-test")
-			Expect(err).NotTo(HaveOccurred())
+			Expect(os.Setenv(operatorCondEnvVar, "operator-condition-test")).To(Succeed())
 			readNamespace = func() (string, error) {
 				return ns, nil
 			}
 
 			// create a new client
 			sch := runtime.NewScheme()
-			err = apiv2.AddToScheme(sch)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(apiv2.AddToScheme(sch)).To(Succeed())
 			cl = fake.NewClientBuilder().WithScheme(sch).WithStatusSubresource(operatorCond).Build()
 
 			// create an operator Condition resource
-			err = cl.Create(ctx, operatorCond)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(cl.Create(ctx, operatorCond)).To(Succeed())
 
 			// Update its status
-			err = cl.Status().Update(ctx, operatorCond)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(cl.Status().Update(ctx, operatorCond)).To(Succeed())
 		})
 
 		AfterEach(func() {
@@ -107,14 +103,12 @@ var _ = Describe("Condition", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				con, err := c.Get(ctx)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("conditionType %v not found", conditionBar))))
 				Expect(con).To(BeNil())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("conditionType %v not found", conditionBar)))
 			})
 
 			It("should error when operator Condition is not present in cluster", func() {
-				err := os.Setenv(operatorCondEnvVar, "NON_EXISTING_COND")
-				Expect(err).NotTo(HaveOccurred())
+				Expect(os.Setenv(operatorCondEnvVar, "NON_EXISTING_COND")).To(Succeed())
 
 				By("setting the status of a new condition")
 				c, err := NewCondition(cl, conditionFoo)
@@ -131,13 +125,11 @@ var _ = Describe("Condition", func() {
 				By("setting the status of an existing condition")
 				c, err := NewCondition(cl, conditionFoo)
 				Expect(err).NotTo(HaveOccurred())
-				err = c.Set(ctx, metav1.ConditionFalse, WithReason("not_in_foo_state"), WithMessage("test"))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(c.Set(ctx, metav1.ConditionFalse, WithReason("not_in_foo_state"), WithMessage("test"))).To(Succeed())
 
 				By("fetching the condition from cluster")
 				op := &apiv2.OperatorCondition{}
-				err = cl.Get(ctx, objKey, op)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(cl.Get(ctx, objKey, op)).To(Succeed())
 
 				By("checking if the condition has been updated")
 				res := op.Spec.Conditions[0]
@@ -150,22 +142,19 @@ var _ = Describe("Condition", func() {
 				By("setting the status of a new condition")
 				c, err := NewCondition(cl, conditionBar)
 				Expect(err).NotTo(HaveOccurred())
-				err = c.Set(ctx, metav1.ConditionTrue, WithReason("in_bar_state"), WithMessage("test"))
-				Expect(err).NotTo(HaveOccurred())
+				Expect(c.Set(ctx, metav1.ConditionTrue, WithReason("in_bar_state"), WithMessage("test"))).To(Succeed())
 
 				By("fetching the condition from cluster")
 				op := &apiv2.OperatorCondition{}
-				err = cl.Get(ctx, objKey, op)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(cl.Get(ctx, objKey, op)).To(Succeed())
 
 				By("checking if the condition has been updated")
 				res := op.Spec.Conditions
-				Expect(len(res)).To(BeEquivalentTo(2))
+				Expect(res).To(HaveLen(2))
 				Expect(meta.IsStatusConditionTrue(res, string(conditionBar))).To(BeTrue())
 			})
 			It("should error when operator Condition is not present in cluster", func() {
-				err := os.Setenv(operatorCondEnvVar, "NON_EXISTING_COND")
-				Expect(err).NotTo(HaveOccurred())
+				Expect(os.Setenv(operatorCondEnvVar, "NON_EXISTING_COND")).To(Succeed())
 
 				By("setting the status of a new condition")
 				c, err := NewCondition(cl, conditionBar)

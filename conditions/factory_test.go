@@ -36,8 +36,7 @@ var _ = Describe("NewCondition", func() {
 	var cl client.Client
 	BeforeEach(func() {
 		sch := runtime.NewScheme()
-		err := apiv2.AddToScheme(sch)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(apiv2.AddToScheme(sch)).To(Succeed())
 		cl = fake.NewClientBuilder().WithScheme(sch).Build()
 	})
 
@@ -56,8 +55,7 @@ var _ = Describe("InClusterFactory", func() {
 
 	BeforeEach(func() {
 		sch := runtime.NewScheme()
-		err := apiv2.AddToScheme(sch)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(apiv2.AddToScheme(sch)).To(Succeed())
 		cl = fake.NewClientBuilder().WithScheme(sch).Build()
 		f = InClusterFactory{cl}
 	})
@@ -73,8 +71,7 @@ var _ = Describe("InClusterFactory", func() {
 
 func testNewCondition(fn func(apiv2.ConditionType) (Condition, error)) {
 	It("should create a new condition", func() {
-		err := os.Setenv(operatorCondEnvVar, "test-operator-condition")
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Setenv(operatorCondEnvVar, "test-operator-condition")).To(Succeed())
 		readNamespace = func() (string, error) {
 			return "default", nil
 		}
@@ -85,8 +82,7 @@ func testNewCondition(fn func(apiv2.ConditionType) (Condition, error)) {
 	})
 
 	It("should error when namespacedName cannot be found", func() {
-		err := os.Unsetenv(operatorCondEnvVar)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Unsetenv(operatorCondEnvVar)).To(Succeed())
 
 		c, err := fn(conditionFoo)
 		Expect(err).To(HaveOccurred())
@@ -96,32 +92,27 @@ func testNewCondition(fn func(apiv2.ConditionType) (Condition, error)) {
 
 func testGetNamespacedName(fn func() (*types.NamespacedName, error)) {
 	It("should error when name of the operator condition cannot be found", func() {
-		err := os.Unsetenv(operatorCondEnvVar)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Unsetenv(operatorCondEnvVar)).To(Succeed())
 
 		objKey, err := fn()
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("could not determine operator condition name")))
 		Expect(objKey).To(BeNil())
-		Expect(err.Error()).To(ContainSubstring("could not determine operator condition name"))
 	})
 
 	It("should error when object namespace cannot be found", func() {
-		err := os.Setenv(operatorCondEnvVar, "test")
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Setenv(operatorCondEnvVar, "test")).To(Succeed())
 
 		readNamespace = func() (string, error) {
 			return "", os.ErrNotExist
 		}
 
 		objKey, err := fn()
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("get operator condition namespace: file does not exist")))
 		Expect(objKey).To(BeNil())
-		Expect(err.Error()).To(ContainSubstring("get operator condition namespace: file does not exist"))
 	})
 
 	It("should return the right namespaced name from SA namespace file", func() {
-		err := os.Setenv(operatorCondEnvVar, "test")
-		Expect(err).NotTo(HaveOccurred())
+		Expect(os.Setenv(operatorCondEnvVar, "test")).To(Succeed())
 
 		readNamespace = func() (string, error) {
 			return "testns", nil
@@ -135,6 +126,5 @@ func testGetNamespacedName(fn func() (*types.NamespacedName, error)) {
 }
 
 func deleteCondition(ctx context.Context, client client.Client, obj client.Object) {
-	err := client.Delete(ctx, obj)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(client.Delete(ctx, obj)).To(Succeed())
 }

@@ -16,7 +16,6 @@ package leader
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,8 +64,7 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
-			err := Become(context.TODO(), "leader-test")
-			Expect(err).Should(HaveOccurred())
+			Expect(Become(context.TODO(), "leader-test")).ShouldNot(Succeed())
 		})
 		It("should return an ErrNoNamespace", func() {
 			os.Setenv("POD_NAME", "leader-test")
@@ -74,9 +72,7 @@ var _ = Describe("Leader election", func() {
 				return "", ErrNoNamespace
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
-			Expect(err).Should(HaveOccurred())
-			Expect(err).To(Equal(ErrNoNamespace))
-			Expect(errors.Is(err, ErrNoNamespace)).To(BeTrue())
+			Expect(err).Should(MatchError(ErrNoNamespace))
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
@@ -84,8 +80,7 @@ var _ = Describe("Leader election", func() {
 				return "testns", nil
 			}
 
-			err := Become(context.TODO(), "leader-test", WithClient(client))
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(Become(context.TODO(), "leader-test", WithClient(client))).To(Succeed())
 		})
 	})
 	Describe("isPodEvicted", func() {
@@ -195,13 +190,11 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error if no node is found", func() {
 			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "", &node)
-			Expect(err).Should(HaveOccurred())
+			Expect(getNode(context.TODO(), client, "", &node)).ToNot(Succeed())
 		})
 		It("should return the node with the given name", func() {
 			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "mynode", &node)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(getNode(context.TODO(), client, "mynode", &node)).Should(Succeed())
 			Expect(node.TypeMeta.APIVersion).To(Equal("v1"))
 			Expect(node.TypeMeta.Kind).To(Equal("Node"))
 		})
@@ -293,28 +286,23 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error if existing is not found", func() {
 			client = fake.NewClientBuilder().WithObjects(pod).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).Should(HaveOccurred())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if pod is not found", func() {
 			client = fake.NewClientBuilder().WithObjects(configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).Should(HaveOccurred())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if pod is nil", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, nil, configmap)
-			Expect(err).Should(HaveOccurred())
+			Expect(deleteLeader(context.TODO(), client, nil, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if configmap is nil", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, nil)
-			Expect(err).Should(HaveOccurred())
+			Expect(deleteLeader(context.TODO(), client, pod, nil)).ToNot(Succeed())
 		})
 		It("should return nil if pod and configmap exists and configmap's owner is the pod", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).To(Succeed())
 		})
 
 	})
