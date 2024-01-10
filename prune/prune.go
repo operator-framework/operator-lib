@@ -111,7 +111,6 @@ func (p Pruner) Namespace() string {
 
 // NewPruner returns a pruner that uses the given strategy to prune objects that have the given GVK
 func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy StrategyFunc, opts ...PrunerOption) (*Pruner, error) {
-
 	if gvk.Empty() {
 		return nil, fmt.Errorf("error when creating a new Pruner: gvk parameter can not be empty")
 	}
@@ -132,7 +131,6 @@ func NewPruner(prunerClient client.Client, gvk schema.GroupVersionKind, strategy
 
 // Prune runs the pruner.
 func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
-	var objs []client.Object
 	listOpts := client.ListOptions{
 		LabelSelector: labels.Set(p.labels).AsSelector(),
 		Namespace:     p.namespace,
@@ -144,7 +142,10 @@ func (p Pruner) Prune(ctx context.Context) ([]client.Object, error) {
 		return nil, fmt.Errorf("error getting a list of resources: %w", err)
 	}
 
-	for _, unsObj := range unstructuredObjs.Items {
+	objs := make([]client.Object, 0, len(unstructuredObjs.Items))
+
+	for i := range unstructuredObjs.Items {
+		unsObj := unstructuredObjs.Items[i]
 		obj, err := convert(p.client, p.gvk, &unsObj)
 		if err != nil {
 			return nil, err

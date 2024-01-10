@@ -687,7 +687,7 @@ func createSchemes() (*runtime.Scheme, error) {
 // myStrategy shows how you can write your own strategy
 // In this example it simply removes a resource if it has
 // the name 'churro1' or 'churro2'
-func myStrategy(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+func myStrategy(_ context.Context, objs []client.Object) ([]client.Object, error) {
 	var objsToRemove []client.Object
 
 	for _, obj := range objs {
@@ -710,6 +710,6 @@ func expectPanic() {
 
 // myIsPrunable shows how you can write your own IsPrunableFunc
 // In this example it simply removes all resources
-func myIsPrunable(obj client.Object) error {
+func myIsPrunable(_ client.Object) error {
 	return nil
 }

@@ -31,7 +31,6 @@ func checkValueFromEnvObj(name string, envVars []corev1.EnvVar) (string, error) 
 		}
 	}
 	return "", errors.New("empty name")
-
 }
 
 var _ = Describe("Retrieving", func() {

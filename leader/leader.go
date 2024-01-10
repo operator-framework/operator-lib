@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/operator-framework/operator-lib/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,8 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/operator-framework/operator-lib/internal/utils"
 )
 
 // ErrNoNamespace indicates that a namespace could not be found for the current
@@ -290,7 +291,6 @@ func isNotReadyNode(ctx context.Context, client crclient.Client, nodeName string
 		}
 	}
 	return false
-
 }
 
 func deleteLeader(ctx context.Context, client crclient.Client, leaderPod *corev1.Pod, existing *corev1.ConfigMap) error {

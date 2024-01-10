@@ -85,22 +85,22 @@ func (DependentPredicate) Generic(e event.GenericEvent) bool {
 // resource to write to the status of one its dependent resources.
 func (DependentPredicate) Update(e event.UpdateEvent) bool {
 	old := e.ObjectOld.(*unstructured.Unstructured).DeepCopy()
-	new := e.ObjectNew.(*unstructured.Unstructured).DeepCopy()
+	updated := e.ObjectNew.(*unstructured.Unstructured).DeepCopy()
 
 	delete(old.Object, "status")
-	delete(new.Object, "status")
+	delete(updated.Object, "status")
 	old.SetResourceVersion("")
-	new.SetResourceVersion("")
+	updated.SetResourceVersion("")
 
 	old.SetManagedFields(removeTimeFromManagedFields(old.GetManagedFields()))
-	new.SetManagedFields(removeTimeFromManagedFields(new.GetManagedFields()))
+	updated.SetManagedFields(removeTimeFromManagedFields(updated.GetManagedFields()))
 
-	if reflect.DeepEqual(old.Object, new.Object) {
+	if reflect.DeepEqual(old.Object, updated.Object) {
 		return false
 	}
 	log.V(1).Info("Reconciling due to dependent resource update",
-		"name", new.GetName(), "namespace", new.GetNamespace(), "apiVersion",
-		new.GroupVersionKind().GroupVersion(), "kind", new.GroupVersionKind().Kind)
+		"name", updated.GetName(), "namespace", updated.GetNamespace(), "apiVersion",
+		updated.GroupVersionKind().GroupVersion(), "kind", updated.GroupVersionKind().Kind)
 	return true
 }
 

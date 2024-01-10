@@ -28,23 +28,27 @@ func TestAnnotation(t *testing.T) {
 	RunSpecs(t, "Annotation Suite")
 }
 
-func makeCreateEventFor(obj client.Object) (e event.CreateEvent) {
+func makeCreateEventFor(obj client.Object) event.CreateEvent {
+	var e event.CreateEvent
 	e.Object = obj
 	return e
 }
 
-func makeUpdateEventFor(old, new client.Object) (e event.UpdateEvent) {
+func makeUpdateEventFor(old, new client.Object) event.UpdateEvent {
+	var e event.UpdateEvent
 	e.ObjectOld = old
 	e.ObjectNew = new
 	return e
 }
 
-func makeDeleteEventFor(obj client.Object) (e event.DeleteEvent) {
+func makeDeleteEventFor(obj client.Object) event.DeleteEvent {
+	var e event.DeleteEvent
 	e.Object = obj
 	return e
 }
 
-func makeGenericEventFor(obj client.Object) (e event.GenericEvent) {
+func makeGenericEventFor(obj client.Object) event.GenericEvent {
+	var e event.GenericEvent
 	e.Object = obj
 	return e
 }
