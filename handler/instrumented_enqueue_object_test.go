@@ -17,8 +17,6 @@ package handler
 import (
 	"context"
 
-	"github.com/operator-framework/operator-lib/handler/internal/metrics"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,6 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/operator-framework/operator-lib/handler/internal/metrics"
 )
 
 var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
