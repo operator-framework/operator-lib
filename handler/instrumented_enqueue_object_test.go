@@ -195,27 +195,29 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 
 func assertMetrics(gauge *dto.MetricFamily, count int, pods []*corev1.Pod) {
 	// need variables to compare the pointers
-	name := "name"
-	namespace := "namespace"
-	g := "group"
-	v := "version"
-	k := "kind"
+	const (
+		name      = "name"
+		namespace = "namespace"
+		g         = "group"
+		v         = "version"
+		k         = "kind"
+	)
 
 	Expect(gauge.Metric).To(HaveLen(count))
 	for i := 0; i < count; i++ {
 		Expect(*gauge.Metric[i].Gauge.Value).To(Equal(float64(pods[i].GetObjectMeta().GetCreationTimestamp().UTC().Unix())))
 
 		for _, l := range gauge.Metric[i].Label {
-			switch l.Name {
-			case &name:
+			switch *l.Name {
+			case name:
 				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectMeta().GetName())))
-			case &namespace:
+			case namespace:
 				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectMeta().GetNamespace())))
-			case &g:
+			case g:
 				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Group)))
-			case &v:
+			case v:
 				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Version)))
-			case &k:
+			case k:
 				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Kind)))
 			}
 		}
