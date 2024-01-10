@@ -40,11 +40,11 @@ var _ = Describe("Retrieving", func() {
 			os.Setenv("HTTP_PROXY", "http_proxy_test")
 			os.Setenv("NO_PROXY", "no_proxy_test")
 			envVars := ReadProxyVarsFromEnv()
-			Expect(len(envVars)).To(Equal(6))
+			Expect(envVars).To(HaveLen(6))
 		})
 		It("does not return unset variables", func() {
 			envVars := ReadProxyVarsFromEnv()
-			Expect(len(envVars)).To(Equal(0))
+			Expect(envVars).To(BeEmpty())
 		})
 
 		It("creates upper and lower case environment variables with the same value", func() {
@@ -55,9 +55,9 @@ var _ = Describe("Retrieving", func() {
 
 			for _, envName := range ProxyEnvNames {
 				upperValue, err := checkValueFromEnvObj(envName, envVars)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				lowerValue, err := checkValueFromEnvObj(strings.ToLower(envName), envVars)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(upperValue).To(Equal(lowerValue))
 			}
 		})

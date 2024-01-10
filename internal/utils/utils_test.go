@@ -38,7 +38,7 @@ var _ = Describe("Helpers test", func() {
 
 			// test
 			namespace, err := GetOperatorNamespace()
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(namespace).To(Equal("testnamespace"))
 		})
 		It("should trim whitespace from namespace", func() {
@@ -48,7 +48,7 @@ var _ = Describe("Helpers test", func() {
 
 			// test
 			namespace, err := GetOperatorNamespace()
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(namespace).To(Equal("testnamespace"))
 		})
 	})

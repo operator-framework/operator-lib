@@ -79,7 +79,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			// verify metrics
 			gauges, err := registry.Gather()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(gauges)).To(Equal(1))
+			Expect(gauges).To(HaveLen(1))
 			assertMetrics(gauges[0], 1, []*corev1.Pod{pod})
 		})
 	})
@@ -114,7 +114,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				// verify metrics
 				gauges, err := registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(len(gauges)).To(Equal(0))
+				Expect(gauges).To(BeEmpty())
 			})
 		})
 		Context("when a gauge does not exist", func() {
@@ -139,7 +139,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				// verify metrics
 				gauges, err := registry.Gather()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(len(gauges)).To(Equal(0))
+				Expect(gauges).To(BeEmpty())
 			})
 		})
 
@@ -174,7 +174,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 			// verify metrics
 			gauges, err := registry.Gather()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(gauges)).To(Equal(1))
+			Expect(gauges).To(HaveLen(1))
 			assertMetrics(gauges[0], 2, []*corev1.Pod{newpod, pod})
 		})
 	})
@@ -183,7 +183,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 		It("should fill out map with values from given objects", func() {
 			labelMap := getResourceLabels(pod)
 			Expect(labelMap).ShouldNot(BeEmpty())
-			Expect(len(labelMap)).To(Equal(5))
+			Expect(labelMap).To(HaveLen(5))
 			Expect(labelMap["name"]).To(Equal(pod.GetObjectMeta().GetName()))
 			Expect(labelMap["namespace"]).To(Equal(pod.GetObjectMeta().GetNamespace()))
 			Expect(labelMap["group"]).To(Equal(pod.GetObjectKind().GroupVersionKind().Group))
@@ -201,22 +201,22 @@ func assertMetrics(gauge *dto.MetricFamily, count int, pods []*corev1.Pod) {
 	v := "version"
 	k := "kind"
 
-	Expect(len(gauge.Metric)).To(Equal(count))
+	Expect(gauge.Metric).To(HaveLen(count))
 	for i := 0; i < count; i++ {
 		Expect(*gauge.Metric[i].Gauge.Value).To(Equal(float64(pods[i].GetObjectMeta().GetCreationTimestamp().UTC().Unix())))
 
 		for _, l := range gauge.Metric[i].Label {
 			switch l.Name {
 			case &name:
-				Expect(l.Value).To(Equal(pods[i].GetObjectMeta().GetName()))
+				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectMeta().GetName())))
 			case &namespace:
-				Expect(l.Value).To(Equal(pods[i].GetObjectMeta().GetNamespace()))
+				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectMeta().GetNamespace())))
 			case &g:
-				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Group))
+				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Group)))
 			case &v:
-				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Version))
+				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Version)))
 			case &k:
-				Expect(l.Value).To(Equal(pods[i].GetObjectKind().GroupVersionKind().Kind))
+				Expect(l.Value).To(HaveValue(Equal(pods[i].GetObjectKind().GroupVersionKind().Kind)))
 			}
 		}
 	}
