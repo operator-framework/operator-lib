@@ -16,7 +16,6 @@ package leader
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,8 +64,7 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
-			err := Become(context.TODO(), "leader-test")
-			Expect(err).ShouldNot(BeNil())
+			Expect(Become(context.TODO(), "leader-test")).ShouldNot(Succeed())
 		})
 		It("should return an ErrNoNamespace", func() {
 			os.Setenv("POD_NAME", "leader-test")
@@ -74,9 +72,7 @@ var _ = Describe("Leader election", func() {
 				return "", ErrNoNamespace
 			}
 			err := Become(context.TODO(), "leader-test", WithClient(client))
-			Expect(err).ShouldNot(BeNil())
-			Expect(err).To(Equal(ErrNoNamespace))
-			Expect(errors.Is(err, ErrNoNamespace)).To(Equal(true))
+			Expect(err).Should(MatchError(ErrNoNamespace))
 		})
 		It("should not return an error", func() {
 			os.Setenv("POD_NAME", "leader-test")
@@ -84,8 +80,7 @@ var _ = Describe("Leader election", func() {
 				return "testns", nil
 			}
 
-			err := Become(context.TODO(), "leader-test", WithClient(client))
-			Expect(err).Should(BeNil())
+			Expect(Become(context.TODO(), "leader-test", WithClient(client))).To(Succeed())
 		})
 	})
 	Describe("isPodEvicted", func() {
@@ -96,21 +91,21 @@ var _ = Describe("Leader election", func() {
 			leaderPod = &corev1.Pod{}
 		})
 		It("should return false with an empty status", func() {
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
+			Expect(isPodEvicted(*leaderPod)).To(BeFalse())
 		})
 		It("should return false if reason is incorrect", func() {
 			leaderPod.Status.Phase = corev1.PodFailed
 			leaderPod.Status.Reason = "invalid"
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
+			Expect(isPodEvicted(*leaderPod)).To(BeFalse())
 		})
 		It("should return false if pod is in the wrong phase", func() {
 			leaderPod.Status.Phase = corev1.PodRunning
-			Expect(isPodEvicted(*leaderPod)).To(Equal(false))
+			Expect(isPodEvicted(*leaderPod)).To(BeFalse())
 		})
 		It("should return true when Phase and Reason are set", func() {
 			leaderPod.Status.Phase = corev1.PodFailed
 			leaderPod.Status.Reason = "Evicted"
-			Expect(isPodEvicted(*leaderPod)).To(Equal(true))
+			Expect(isPodEvicted(*leaderPod)).To(BeTrue())
 		})
 	})
 	Describe("myOwnerRef", func() {
@@ -130,17 +125,17 @@ var _ = Describe("Leader election", func() {
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
 			_, err := myOwnerRef(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 		It("should return an error if no pod is found", func() {
 			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
 			_, err := myOwnerRef(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 		It("should return the owner reference without error", func() {
 			os.Setenv("POD_NAME", "mypod")
 			owner, err := myOwnerRef(context.TODO(), client, "testns")
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(owner.APIVersion).To(Equal("v1"))
 			Expect(owner.Kind).To(Equal("Pod"))
 			Expect(owner.Name).To(Equal("mypod"))
@@ -163,17 +158,17 @@ var _ = Describe("Leader election", func() {
 		It("should return an error when POD_NAME is not set", func() {
 			os.Unsetenv("POD_NAME")
 			_, err := getPod(context.TODO(), nil, "")
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 		It("should return an error if no pod is found", func() {
 			os.Setenv("POD_NAME", "thisisnotthepodyourelookingfor")
 			_, err := getPod(context.TODO(), client, "")
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 		It("should return the pod with the given name", func() {
 			os.Setenv("POD_NAME", "mypod")
 			pod, err := getPod(context.TODO(), client, "testns")
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(pod).ShouldNot(BeNil())
 			Expect(pod.TypeMeta.APIVersion).To(Equal("v1"))
 			Expect(pod.TypeMeta.Kind).To(Equal("Pod"))
@@ -195,13 +190,11 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error if no node is found", func() {
 			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "", &node)
-			Expect(err).ShouldNot(BeNil())
+			Expect(getNode(context.TODO(), client, "", &node)).ToNot(Succeed())
 		})
 		It("should return the node with the given name", func() {
 			node := corev1.Node{}
-			err := getNode(context.TODO(), client, "mynode", &node)
-			Expect(err).Should(BeNil())
+			Expect(getNode(context.TODO(), client, "mynode", &node)).Should(Succeed())
 			Expect(node.TypeMeta.APIVersion).To(Equal("v1"))
 			Expect(node.TypeMeta.Kind).To(Equal("Node"))
 		})
@@ -228,33 +221,33 @@ var _ = Describe("Leader election", func() {
 		It("should return false if node is invalid", func() {
 			client = fake.NewClientBuilder().WithObjects().Build()
 			ret := isNotReadyNode(context.TODO(), client, "")
-			Expect(ret).To(Equal(false))
+			Expect(ret).To(BeFalse())
 		})
 		It("should return false if no NodeCondition is found", func() {
 			client = fake.NewClientBuilder().WithObjects(node).Build()
 			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
+			Expect(ret).To(BeFalse())
 		})
 		It("should return false if type is incorrect", func() {
 			node.Status.Conditions[0].Type = corev1.NodeMemoryPressure
 			node.Status.Conditions[0].Status = corev1.ConditionFalse
 			client = fake.NewClientBuilder().WithObjects(node).Build()
 			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
+			Expect(ret).To(BeFalse())
 		})
 		It("should return false if NodeReady's type is true", func() {
 			node.Status.Conditions[0].Type = corev1.NodeReady
 			node.Status.Conditions[0].Status = corev1.ConditionTrue
 			client = fake.NewClientBuilder().WithObjects(node).Build()
 			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(false))
+			Expect(ret).To(BeFalse())
 		})
 		It("should return true when Type is set and Status is set to false", func() {
 			node.Status.Conditions[0].Type = corev1.NodeReady
 			node.Status.Conditions[0].Status = corev1.ConditionFalse
 			client = fake.NewClientBuilder().WithObjects(node).Build()
 			ret := isNotReadyNode(context.TODO(), client, nodeName)
-			Expect(ret).To(Equal(true))
+			Expect(ret).To(BeTrue())
 		})
 	})
 	Describe("deleteLeader", func() {
@@ -293,28 +286,23 @@ var _ = Describe("Leader election", func() {
 		})
 		It("should return an error if existing is not found", func() {
 			client = fake.NewClientBuilder().WithObjects(pod).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).ShouldNot(BeNil())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if pod is not found", func() {
 			client = fake.NewClientBuilder().WithObjects(configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).ShouldNot(BeNil())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if pod is nil", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, nil, configmap)
-			Expect(err).ShouldNot(BeNil())
+			Expect(deleteLeader(context.TODO(), client, nil, configmap)).ToNot(Succeed())
 		})
 		It("should return an error if configmap is nil", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, nil)
-			Expect(err).ShouldNot(BeNil())
+			Expect(deleteLeader(context.TODO(), client, pod, nil)).ToNot(Succeed())
 		})
 		It("should return nil if pod and configmap exists and configmap's owner is the pod", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
-			err := deleteLeader(context.TODO(), client, pod, configmap)
-			Expect(err).Should(BeNil())
+			Expect(deleteLeader(context.TODO(), client, pod, configmap)).To(Succeed())
 		})
 
 	})

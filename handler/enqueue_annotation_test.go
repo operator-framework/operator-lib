@@ -56,8 +56,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 		podOwner.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Kind: "Pod"})
 
-		err := SetOwnerAnnotations(podOwner, pod)
-		Expect(err).To(BeNil())
+		Expect(SetOwnerAnnotations(podOwner, pod)).To(Succeed())
 		instance = EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Group: "",
@@ -92,8 +91,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				},
 			}
 
-			err := SetOwnerAnnotations(podOwner, repl)
-			Expect(err).To(BeNil())
+			Expect(SetOwnerAnnotations(podOwner, repl)).To(Succeed())
 
 			evt := event.CreateEvent{
 				Object: repl,
@@ -248,8 +246,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			newPod.Name = pod.Name + "2"
 			newPod.Namespace = pod.Namespace + "2"
 
-			err := SetOwnerAnnotations(podOwner, pod)
-			Expect(err).To(BeNil())
+			Expect(SetOwnerAnnotations(podOwner, pod)).To(Succeed())
 
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
@@ -337,8 +334,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			newPod.Name = pod.Name + "2"
 			newPod.Namespace = pod.Namespace + "2"
 
-			err := SetOwnerAnnotations(podOwner, pod)
-			Expect(err).To(BeNil())
+			Expect(SetOwnerAnnotations(podOwner, pod)).To(Succeed())
 
 			var podOwner2 = &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -348,8 +344,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			}
 			podOwner2.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Kind: "Pod"})
 
-			err = SetOwnerAnnotations(podOwner2, newPod)
-			Expect(err).To(BeNil())
+			Expect(SetOwnerAnnotations(podOwner2, newPod)).To(Succeed())
 
 			evt := event.UpdateEvent{
 				ObjectOld: pod,
@@ -389,8 +384,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				},
 			}
 
-			err := SetOwnerAnnotations(podOwner, nd)
-			Expect(err).To(BeNil())
+			Expect(SetOwnerAnnotations(podOwner, nd)).To(Succeed())
 
 			expected := map[string]string{
 				"my-test-annotation":     "should-keep",
@@ -398,7 +392,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				TypeAnnotation:           schema.GroupKind{Group: "", Kind: "Pod"}.String(),
 			}
 
-			Expect(len(nd.GetAnnotations())).To(Equal(3))
+			Expect(nd.GetAnnotations()).To(HaveLen(3))
 			Expect(nd.GetAnnotations()).To(Equal(expected))
 		})
 		It("should return error when the owner Kind is not present", func() {
@@ -409,8 +403,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			}
 
 			podOwner.SetGroupVersionKind(schema.GroupVersionKind{Group: "Pod", Kind: ""})
-			err := SetOwnerAnnotations(podOwner, nd)
-			Expect(err).NotTo(BeNil())
+			Expect(SetOwnerAnnotations(podOwner, nd)).ToNot(Succeed())
 		})
 		It("should return an error when the owner Name is not set", func() {
 			nd := &corev1.Node{
@@ -426,8 +419,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 			}
 
 			ownerNew.SetGroupVersionKind(schema.GroupVersionKind{Group: "Pod", Kind: ""})
-			err := SetOwnerAnnotations(ownerNew, nd)
-			Expect(err).NotTo(BeNil())
+			Expect(SetOwnerAnnotations(ownerNew, nd)).ToNot(Succeed())
 		})
 	})
 })
