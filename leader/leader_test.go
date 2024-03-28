@@ -108,6 +108,31 @@ var _ = Describe("Leader election", func() {
 			Expect(isPodEvicted(*leaderPod)).To(BeTrue())
 		})
 	})
+	Describe("isPodPreempted", func() {
+		var (
+			leaderPod *corev1.Pod
+		)
+		BeforeEach(func() {
+			leaderPod = &corev1.Pod{}
+		})
+		It("should return false with an empty status", func() {
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return false if reason is incorrect", func() {
+			leaderPod.Status.Phase = corev1.PodFailed
+			leaderPod.Status.Reason = "invalid"
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return false if pod is in the wrong phase", func() {
+			leaderPod.Status.Phase = corev1.PodRunning
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return true when Phase and Reason are set", func() {
+			leaderPod.Status.Phase = corev1.PodFailed
+			leaderPod.Status.Reason = "Preempting"
+			Expect(isPodPreempted(*leaderPod)).To(BeTrue())
+		})
+	})
 	Describe("myOwnerRef", func() {
 		var (
 			client crclient.Client
