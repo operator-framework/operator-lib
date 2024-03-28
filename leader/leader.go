@@ -187,6 +187,14 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 					if err != nil {
 						log.Error(err, "Leader pod could not be deleted.")
 					}
+				case isPodPreempted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:
+					log.Info("Operator pod with leader lock has been preempted.", "leader", leaderPod.Name)
+					log.Info("Deleting preempted leader.")
+					// Pod may not delete immediately, continue with backoff
+					err := config.Client.Delete(ctx, leaderPod)
+					if err != nil {
+						log.Error(err, "Leader pod could not be deleted.")
+					}
 				case isNotReadyNode(ctx, config.Client, leaderPod.Spec.NodeName):
 					log.Info("the status of the node where operator pod with leader lock was running has been 'notReady'")
 					log.Info("Deleting the leader.")
@@ -239,6 +247,12 @@ func isPodEvicted(pod corev1.Pod) bool {
 	podFailed := pod.Status.Phase == corev1.PodFailed
 	podEvicted := pod.Status.Reason == "Evicted"
 	return podFailed && podEvicted
+}
+
+func isPodPreempted(pod corev1.Pod) bool {
+	podFailed := pod.Status.Phase == corev1.PodFailed
+	podPreempted := pod.Status.Reason == "Preempting"
+	return podFailed && podPreempted
 }
 
 // getPod returns a Pod object that corresponds to the pod in which the code
