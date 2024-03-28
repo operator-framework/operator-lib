@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -112,8 +111,8 @@ var _ = Describe("Leader election", func() {
 							},
 						},
 					},
-					Status: v1.PodStatus{
-						Phase:  v1.PodFailed,
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodFailed,
 						Reason: "Evicted",
 					},
 				},
@@ -141,7 +140,11 @@ var _ = Describe("Leader election", func() {
 									Namespace: "testns",
 								},
 							}
-							client.Delete(ctx, cm)
+
+							err := client.Delete(ctx, cm)
+							if err != nil {
+								return err
+							}
 						}
 						return nil
 					},
@@ -183,8 +186,8 @@ var _ = Describe("Leader election", func() {
 							},
 						},
 					},
-					Status: v1.PodStatus{
-						Phase:  v1.PodFailed,
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodFailed,
 						Reason: "Preempting",
 					},
 				},
@@ -212,7 +215,11 @@ var _ = Describe("Leader election", func() {
 									Namespace: "testns",
 								},
 							}
-							client.Delete(ctx, cm)
+
+							err := client.Delete(ctx, cm)
+							if err != nil {
+								return err
+							}
 						}
 						return nil
 					},
