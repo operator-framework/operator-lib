@@ -179,9 +179,17 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 					log.Info("Leader pod has been deleted, waiting for garbage collection to remove the lock.")
 				case err != nil:
 					return err
-				case (isPodEvicted(*leaderPod) || isPodPreempted(*leaderPod)) && leaderPod.GetDeletionTimestamp() == nil:
-					log.Info("Operator pod with leader lock has been evicted or preempted.", "leader", leaderPod.Name)
+				case isPodEvicted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:
+					log.Info("Operator pod with leader lock has been evicted.", "leader", leaderPod.Name)
 					log.Info("Deleting evicted leader.")
+					// Pod may not delete immediately, continue with backoff
+					err := config.Client.Delete(ctx, leaderPod)
+					if err != nil {
+						log.Error(err, "Leader pod could not be deleted.")
+					}
+				case isPodPreempted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:
+					log.Info("Operator pod with leader lock has been preempted.", "leader", leaderPod.Name)
+					log.Info("Deleting preempted leader.")
 					// Pod may not delete immediately, continue with backoff
 					err := config.Client.Delete(ctx, leaderPod)
 					if err != nil {
