@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("Leader election", func() {
@@ -82,6 +83,156 @@ var _ = Describe("Leader election", func() {
 
 			Expect(Become(context.TODO(), "leader-test", WithClient(client))).To(Succeed())
 		})
+		It("should become leader when pod is evicted and rescheduled", func() {
+
+			evictedPodStatusClient := fake.NewClientBuilder().WithObjects(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test-new",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test-new",
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodFailed,
+						Reason: "Evicted",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+				},
+			).WithInterceptorFuncs(
+				interceptor.Funcs{
+					// Mock garbage collection of the ConfigMap when the Pod is deleted.
+					Delete: func(ctx context.Context, client crclient.WithWatch, obj crclient.Object, opts ...crclient.DeleteOption) error {
+						if obj.GetObjectKind() != nil && obj.GetObjectKind().GroupVersionKind().Kind == "Pod" && obj.GetName() == "leader-test" {
+							cm := &corev1.ConfigMap{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "leader-test",
+									Namespace: "testns",
+								},
+							}
+
+							err := client.Delete(ctx, cm)
+							if err != nil {
+								return err
+							}
+						}
+						return nil
+					},
+				},
+			).Build()
+
+			os.Setenv("POD_NAME", "leader-test-new")
+			readNamespace = func() (string, error) {
+				return "testns", nil
+			}
+
+			Expect(Become(context.TODO(), "leader-test", WithClient(evictedPodStatusClient))).To(Succeed())
+		})
+		It("should become leader when pod is preempted and rescheduled", func() {
+
+			preemptedPodStatusClient := fake.NewClientBuilder().WithObjects(
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test-new",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test-new",
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodFailed,
+						Reason: "Preempting",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "leader-test",
+						Namespace: "testns",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "v1",
+								Kind:       "Pod",
+								Name:       "leader-test",
+							},
+						},
+					},
+				},
+			).WithInterceptorFuncs(
+				interceptor.Funcs{
+					// Mock garbage collection of the ConfigMap when the Pod is deleted.
+					Delete: func(ctx context.Context, client crclient.WithWatch, obj crclient.Object, opts ...crclient.DeleteOption) error {
+						if obj.GetObjectKind() != nil && obj.GetObjectKind().GroupVersionKind().Kind == "Pod" && obj.GetName() == "leader-test" {
+							cm := &corev1.ConfigMap{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "leader-test",
+									Namespace: "testns",
+								},
+							}
+
+							err := client.Delete(ctx, cm)
+							if err != nil {
+								return err
+							}
+						}
+						return nil
+					},
+				},
+			).Build()
+
+			os.Setenv("POD_NAME", "leader-test-new")
+			readNamespace = func() (string, error) {
+				return "testns", nil
+			}
+
+			Expect(Become(context.TODO(), "leader-test", WithClient(preemptedPodStatusClient))).To(Succeed())
+		})
 	})
 	Describe("isPodEvicted", func() {
 		var (
@@ -106,6 +257,31 @@ var _ = Describe("Leader election", func() {
 			leaderPod.Status.Phase = corev1.PodFailed
 			leaderPod.Status.Reason = "Evicted"
 			Expect(isPodEvicted(*leaderPod)).To(BeTrue())
+		})
+	})
+	Describe("isPodPreempted", func() {
+		var (
+			leaderPod *corev1.Pod
+		)
+		BeforeEach(func() {
+			leaderPod = &corev1.Pod{}
+		})
+		It("should return false with an empty status", func() {
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return false if reason is incorrect", func() {
+			leaderPod.Status.Phase = corev1.PodFailed
+			leaderPod.Status.Reason = "invalid"
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return false if pod is in the wrong phase", func() {
+			leaderPod.Status.Phase = corev1.PodRunning
+			Expect(isPodPreempted(*leaderPod)).To(BeFalse())
+		})
+		It("should return true when Phase and Reason are set", func() {
+			leaderPod.Status.Phase = corev1.PodFailed
+			leaderPod.Status.Reason = "Preempting"
+			Expect(isPodPreempted(*leaderPod)).To(BeTrue())
 		})
 	})
 	Describe("myOwnerRef", func() {
