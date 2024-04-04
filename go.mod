@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.32.0
 	github.com/operator-framework/api v0.21.0
 	github.com/prometheus/client_golang v1.18.0
-	github.com/prometheus/client_model v0.5.0
+	github.com/prometheus/client_model v0.6.1
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
 	k8s.io/client-go v0.28.5
