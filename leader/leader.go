@@ -199,7 +199,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 					log.Info("the status of the node where operator pod with leader lock was running has been 'notReady'")
 					log.Info("Deleting the leader.")
 
-					//Mark the termainating status to the leaderPod and Delete the configmap lock
+					// Mark the termainating status to the leaderPod and Delete the configmap lock
 					if err := deleteLeader(ctx, config.Client, leaderPod, existing); err != nil {
 						return err
 					}
