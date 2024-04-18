@@ -274,11 +274,6 @@ func getPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod
 		return nil, err
 	}
 
-	// .Get() clears the APIVersion and Kind,
-	// so we need to set them before returning the object.
-	pod.TypeMeta.APIVersion = "v1"
-	pod.TypeMeta.Kind = "Pod"
-
 	log.V(1).Info("Found Pod", "Pod.Namespace", ns, "Pod.Name", pod.Name)
 
 	return pod, nil

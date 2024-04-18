@@ -22,20 +22,25 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 var _ = Describe("Leader election", func() {
-
 	Describe("Become", func() {
-		var (
-			client crclient.Client
-		)
+		var client crclient.Client
 		BeforeEach(func() {
 			client = fake.NewClientBuilder().WithObjects(
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -49,6 +54,13 @@ var _ = Describe("Leader election", func() {
 					},
 				},
 				&corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "ConfigMap",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -84,9 +96,15 @@ var _ = Describe("Leader election", func() {
 			Expect(Become(context.TODO(), "leader-test", WithClient(client))).To(Succeed())
 		})
 		It("should become leader when pod is evicted and rescheduled", func() {
-
 			evictedPodStatusClient := fake.NewClientBuilder().WithObjects(
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test-new",
 						Namespace: "testns",
@@ -100,6 +118,13 @@ var _ = Describe("Leader election", func() {
 					},
 				},
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -117,6 +142,13 @@ var _ = Describe("Leader election", func() {
 					},
 				},
 				&corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "ConfigMap",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -159,9 +191,15 @@ var _ = Describe("Leader election", func() {
 			Expect(Become(context.TODO(), "leader-test", WithClient(evictedPodStatusClient))).To(Succeed())
 		})
 		It("should become leader when pod is preempted and rescheduled", func() {
-
 			preemptedPodStatusClient := fake.NewClientBuilder().WithObjects(
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test-new",
 						Namespace: "testns",
@@ -175,6 +213,13 @@ var _ = Describe("Leader election", func() {
 					},
 				},
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -192,6 +237,13 @@ var _ = Describe("Leader election", func() {
 					},
 				},
 				&corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "ConfigMap",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "leader-test",
 						Namespace: "testns",
@@ -235,9 +287,7 @@ var _ = Describe("Leader election", func() {
 		})
 	})
 	Describe("isPodEvicted", func() {
-		var (
-			leaderPod *corev1.Pod
-		)
+		var leaderPod *corev1.Pod
 		BeforeEach(func() {
 			leaderPod = &corev1.Pod{}
 		})
@@ -260,9 +310,7 @@ var _ = Describe("Leader election", func() {
 		})
 	})
 	Describe("isPodPreempted", func() {
-		var (
-			leaderPod *corev1.Pod
-		)
+		var leaderPod *corev1.Pod
 		BeforeEach(func() {
 			leaderPod = &corev1.Pod{}
 		})
@@ -285,12 +333,17 @@ var _ = Describe("Leader election", func() {
 		})
 	})
 	Describe("myOwnerRef", func() {
-		var (
-			client crclient.Client
-		)
+		var client crclient.Client
 		BeforeEach(func() {
 			client = fake.NewClientBuilder().WithObjects(
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mypod",
 						Namespace: "testns",
@@ -318,12 +371,17 @@ var _ = Describe("Leader election", func() {
 		})
 	})
 	Describe("getPod", func() {
-		var (
-			client crclient.Client
-		)
+		var client crclient.Client
 		BeforeEach(func() {
 			client = fake.NewClientBuilder().WithObjects(
 				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Pod",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mypod",
 						Namespace: "testns",
@@ -352,12 +410,17 @@ var _ = Describe("Leader election", func() {
 	})
 
 	Describe("getNode", func() {
-		var (
-			client crclient.Client
-		)
+		var client crclient.Client
 		BeforeEach(func() {
 			client = fake.NewClientBuilder().WithObjects(
 				&corev1.Node{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: schema.GroupVersion{
+							Group:   corev1.SchemeGroupVersion.Group,
+							Version: corev1.SchemeGroupVersion.Version,
+						}.String(),
+						Kind: "Node",
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mynode",
 					},
@@ -385,6 +448,13 @@ var _ = Describe("Leader election", func() {
 		BeforeEach(func() {
 			nodeName = "mynode"
 			node = &corev1.Node{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: schema.GroupVersion{
+						Group:   corev1.SchemeGroupVersion.Group,
+						Version: corev1.SchemeGroupVersion.Version,
+					}.String(),
+					Kind: "Node",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 				},
@@ -434,6 +504,13 @@ var _ = Describe("Leader election", func() {
 		)
 		BeforeEach(func() {
 			pod = &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: schema.GroupVersion{
+						Group:   corev1.SchemeGroupVersion.Group,
+						Version: corev1.SchemeGroupVersion.Version,
+					}.String(),
+					Kind: "Pod",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-test",
 					Namespace: "testns",
@@ -447,6 +524,13 @@ var _ = Describe("Leader election", func() {
 				},
 			}
 			configmap = &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: schema.GroupVersion{
+						Group:   corev1.SchemeGroupVersion.Group,
+						Version: corev1.SchemeGroupVersion.Version,
+					}.String(),
+					Kind: "ConfigMap",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "leader-test",
 					Namespace: "testns",
@@ -480,6 +564,5 @@ var _ = Describe("Leader election", func() {
 			client = fake.NewClientBuilder().WithObjects(pod, configmap).Build()
 			Expect(deleteLeader(context.TODO(), client, pod, configmap)).To(Succeed())
 		})
-
 	})
 })
