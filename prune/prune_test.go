@@ -61,11 +61,11 @@ var _ = Describe("Prune", func() {
 	Describe("Unprunable", func() {
 		Describe("Error()", func() {
 			It("Should Return a String Representation of Unprunable", func() {
-				unpruneable := &Unprunable{
+				unpruneable := Unprunable{
 					Obj:    &fakeObj,
 					Reason: "TestReason",
 				}
-				Expect(unpruneable).To(MatchError(fmt.Sprintf("unable to prune %s: %s", client.ObjectKeyFromObject(fakeObj), unpruneable.Reason)))
+				Expect(unpruneable.Error()).To(Equal(fmt.Sprintf("unable to prune %s: %s", client.ObjectKeyFromObject(fakeObj), unpruneable.Reason)))
 			})
 		})
 	})
