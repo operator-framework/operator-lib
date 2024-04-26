@@ -282,7 +282,7 @@ var _ = Describe("Prune", func() {
 					Expect(pruner).ShouldNot(BeNil())
 
 					// IsPrunableFunc that throws non Unprunable error
-					errorPrunableFunc := func(obj client.Object) error {
+					errorPrunableFunc := func(_ client.Object) error {
 						return fmt.Errorf("TEST")
 					}
 
@@ -309,7 +309,7 @@ var _ = Describe("Prune", func() {
 					Expect(jobs.Items).Should(HaveLen(3))
 
 					// strategy that will return an error
-					prunerStrategy := func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+					prunerStrategy := func(_ context.Context, _ []client.Object) ([]client.Object, error) {
 						return nil, fmt.Errorf("TESTERROR")
 					}
 
