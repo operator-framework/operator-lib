@@ -199,7 +199,7 @@ func Become(ctx context.Context, lockName string, opts ...Option) error {
 					log.Info("the status of the node where operator pod with leader lock was running has been 'notReady'")
 					log.Info("Deleting the leader.")
 
-					//Mark the termainating status to the leaderPod and Delete the configmap lock
+					// Mark the termainating status to the leaderPod and Delete the configmap lock
 					if err := deleteLeader(ctx, config.Client, leaderPod, existing); err != nil {
 						return err
 					}
@@ -273,11 +273,6 @@ func getPod(ctx context.Context, client crclient.Client, ns string) (*corev1.Pod
 		log.Error(err, "Failed to get Pod", "Pod.Namespace", ns, "Pod.Name", podName)
 		return nil, err
 	}
-
-	// .Get() clears the APIVersion and Kind,
-	// so we need to set them before returning the object.
-	pod.TypeMeta.APIVersion = "v1"
-	pod.TypeMeta.Kind = "Pod"
 
 	log.V(1).Info("Found Pod", "Pod.Namespace", ns, "Pod.Name", pod.Name)
 

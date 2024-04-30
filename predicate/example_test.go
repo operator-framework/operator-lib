@@ -40,7 +40,7 @@ func ExampleNewPause() {
 		os.Exit(1)
 	}
 
-	var r reconcile.Func = func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	var r reconcile.Func = func(_ context.Context, _ reconcile.Request) (reconcile.Result, error) {
 		// Your reconcile logic would go here. No paused Pod events would trigger reconciliation.
 		return reconcile.Result{}, nil
 	}

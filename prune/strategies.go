@@ -26,7 +26,7 @@ import (
 // resources to prune based on a maximum count of resources allowed.
 // If the max count of resources is exceeded, the oldest resources are prioritized for pruning
 func NewPruneByCountStrategy(count int) StrategyFunc {
-	return func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+	return func(_ context.Context, objs []client.Object) ([]client.Object, error) {
 		if len(objs) <= count {
 			return nil, nil
 		}
@@ -47,7 +47,7 @@ func NewPruneByCountStrategy(count int) StrategyFunc {
 // NewPruneByDateStrategy returns a StrategyFunc that will return a list of
 // resources to prune where the resource CreationTimestamp is after the given time.Time.
 func NewPruneByDateStrategy(date time.Time) StrategyFunc {
-	return func(ctx context.Context, objs []client.Object) ([]client.Object, error) {
+	return func(_ context.Context, objs []client.Object) ([]client.Object, error) {
 		var objsToPrune []client.Object
 
 		for _, obj := range objs {
