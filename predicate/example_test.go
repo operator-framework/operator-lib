@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -46,7 +47,7 @@ func ExampleNewPause() {
 	}
 
 	// Filter out Pods with the "my.app/paused: true" annotation.
-	pause, err := predicate.NewPause("my.app/paused")
+	pause, err := predicate.NewPause[client.Object]("my.app/paused")
 	if err != nil {
 		os.Exit(1)
 	}

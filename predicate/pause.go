@@ -15,6 +15,7 @@
 package predicate
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/operator-framework/operator-lib/internal/annotation"
@@ -31,6 +32,6 @@ import (
 // a stricter annotation modification policy. See AdmissionReview configuration for user info available
 // to a webhook:
 // https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#request
-func NewPause(key string) (predicate.Predicate, error) {
-	return annotation.NewFalsyPredicate(key, annotation.Options{Log: log})
+func NewPause[T client.Object](key string) (predicate.TypedPredicate[T], error) {
+	return annotation.NewFalsyPredicate[T](key, annotation.Options{Log: log})
 }

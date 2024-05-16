@@ -51,11 +51,11 @@ func ExampleNewPause() {
 	}
 
 	// Filter out Pods with the "my.app/paused: true" annotation.
-	pause, err := handler.NewPause("my.app/paused")
+	pause, err := handler.NewPause[*corev1.Pod]("my.app/paused")
 	if err != nil {
 		os.Exit(1)
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), pause); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}, pause)); err != nil {
 		os.Exit(1)
 	}
 

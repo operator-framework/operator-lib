@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -32,10 +33,10 @@ import (
 )
 
 var _ = Describe("EnqueueRequestForAnnotation", func() {
-	var ctx = context.TODO()
+	ctx := context.TODO()
 
 	var q workqueue.RateLimitingInterface
-	var instance EnqueueRequestForAnnotation
+	var instance EnqueueRequestForAnnotation[client.Object]
 	var pod *corev1.Pod
 	var podOwner *corev1.Pod
 
@@ -57,11 +58,12 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 		podOwner.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Kind: "Pod"})
 
 		Expect(SetOwnerAnnotations(podOwner, pod)).To(Succeed())
-		instance = EnqueueRequestForAnnotation{
+		instance = EnqueueRequestForAnnotation[client.Object]{
 			Type: schema.GroupKind{
 				Group: "",
 				Kind:  "Pod",
-			}}
+			},
+		}
 	})
 
 	Describe("Create", func() {
@@ -181,7 +183,8 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			i, _ := q.Get()
 			Expect(i).To(Equal(reconcile.Request{
-				NamespacedName: types.NamespacedName{Namespace: "", Name: "AppService"}}))
+				NamespacedName: types.NamespacedName{Namespace: "", Name: "AppService"},
+			}))
 		})
 		It("should enqueue a Request for an object that is cluster scoped which has the annotations", func() {
 			nd := &corev1.Node{
@@ -194,7 +197,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				},
 			}
 
-			instance = EnqueueRequestForAnnotation{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
+			instance = EnqueueRequestForAnnotation[client.Object]{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
 
 			evt := event.CreateEvent{
 				Object: nd,
@@ -205,14 +208,15 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			i, _ := q.Get()
 			Expect(i).To(Equal(reconcile.Request{
-				NamespacedName: types.NamespacedName{Namespace: "", Name: "myapp"}}))
+				NamespacedName: types.NamespacedName{Namespace: "", Name: "myapp"},
+			}))
 		})
 		It("should not enqueue a Request for an object that is cluster scoped which does not have annotations", func() {
 			nd := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
 			}
 
-			instance = EnqueueRequestForAnnotation{Type: nd.GetObjectKind().GroupVersionKind().GroupKind()}
+			instance = EnqueueRequestForAnnotation[client.Object]{Type: nd.GetObjectKind().GroupVersionKind().GroupKind()}
 			evt := event.CreateEvent{
 				Object: nd,
 			}
@@ -293,7 +297,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 					Name:      "faz",
 				},
 			}
-			instance = EnqueueRequestForAnnotation{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
+			instance = EnqueueRequestForAnnotation[client.Object]{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
 
 			evt := event.CreateEvent{
 				Object: repl,
@@ -311,7 +315,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 				NamespacedNameAnnotation: "foo/faz",
 			}
 
-			instance2 := EnqueueRequestForAnnotation{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
+			instance2 := EnqueueRequestForAnnotation[client.Object]{Type: schema.GroupKind{Group: "apps", Kind: "ReplicaSet"}}
 
 			evt2 := event.UpdateEvent{
 				ObjectOld: repl,
@@ -336,7 +340,7 @@ var _ = Describe("EnqueueRequestForAnnotation", func() {
 
 			Expect(SetOwnerAnnotations(podOwner, pod)).To(Succeed())
 
-			var podOwner2 = &corev1.Pod{
+			podOwner2 := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "podOwnerNsTest",
 					Name:      "podOwnerNameTest",
