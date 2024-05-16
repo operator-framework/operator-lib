@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,10 +34,10 @@ import (
 )
 
 var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
-	var ctx = context.TODO()
+	ctx := context.TODO()
 
 	var q workqueue.RateLimitingInterface
-	var instance InstrumentedEnqueueRequestForObject
+	var instance InstrumentedEnqueueRequestForObject[client.Object]
 	var pod *corev1.Pod
 
 	registry := prometheus.NewRegistry()
@@ -44,7 +45,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 
 	BeforeEach(func() {
 		q = &controllertest.Queue{Interface: workqueue.New()}
-		instance = InstrumentedEnqueueRequestForObject{}
+		instance = InstrumentedEnqueueRequestForObject[client.Object]{}
 		pod = &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Pod",
@@ -142,7 +143,6 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 				Expect(gauges).To(BeEmpty())
 			})
 		})
-
 	})
 
 	Describe("Update", func() {
