@@ -38,11 +38,11 @@ var _ = Describe("filter", func() {
 	var (
 		ctx = context.TODO()
 		err error
-		q   workqueue.RateLimitingInterface
+		q   workqueue.TypedRateLimitingInterface[reconcile.Request]
 		pod *corev1.Pod
 	)
 	BeforeEach(func() {
-		q = &controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{TypedInterface: workqueue.NewTyped[reconcile.Request]()}
 
 		pod = &corev1.Pod{}
 		pod.SetName("foo")
@@ -577,7 +577,7 @@ var _ = Describe("filter", func() {
 
 })
 
-func verifyQueueHasPod(q workqueue.RateLimitingInterface, pod *corev1.Pod) {
+func verifyQueueHasPod(q workqueue.TypedRateLimitingInterface[reconcile.Request], pod *corev1.Pod) {
 	ExpectWithOffset(1, q.Len()).To(Equal(1))
 	i, _ := q.Get()
 	ExpectWithOffset(1, i).To(Equal(reconcile.Request{
@@ -585,6 +585,6 @@ func verifyQueueHasPod(q workqueue.RateLimitingInterface, pod *corev1.Pod) {
 	}))
 }
 
-func verifyQueueEmpty(q workqueue.RateLimitingInterface) {
+func verifyQueueEmpty(q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	ExpectWithOffset(1, q.Len()).To(Equal(0))
 }

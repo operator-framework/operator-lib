@@ -36,7 +36,7 @@ import (
 var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	ctx := context.TODO()
 
-	var q workqueue.RateLimitingInterface
+	var q workqueue.TypedRateLimitingInterface[reconcile.Request]
 	var instance InstrumentedEnqueueRequestForObject[client.Object]
 	var pod *corev1.Pod
 
@@ -44,7 +44,7 @@ var _ = Describe("InstrumentedEnqueueRequestForObject", func() {
 	registry.MustRegister(metrics.ResourceCreatedAt)
 
 	BeforeEach(func() {
-		q = &controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{TypedInterface: workqueue.NewTyped[reconcile.Request]()}
 		instance = InstrumentedEnqueueRequestForObject[client.Object]{}
 		pod = &corev1.Pod{
 			TypeMeta: metav1.TypeMeta{
