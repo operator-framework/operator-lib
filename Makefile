@@ -7,10 +7,10 @@ include .bingo/Variables.mk
 build: $(SOURCES) ## Build Test
 	go build -ldflags="-s -w" ./...
 
-lint: golangci-lint ## Run golangci-lint
+lint: $(GOLANGCI_LINT) ## Run golangci-lint
 	@$(GOLANGCI_LINT) run
 
-lint-fix: golangci-lint ## Run golangci lint to automatically perform fixes
+lint-fix: $(GOLANGCI_LINT) ## Run golangci lint to automatically perform fixes
 	@$(GOLANGCI_LINT) run --fix
 
 fmt: ## Run go fmt
