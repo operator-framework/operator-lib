@@ -35,13 +35,13 @@ import (
 var _ = Describe("EnqueueRequestForAnnotation", func() {
 	ctx := context.TODO()
 
-	var q workqueue.RateLimitingInterface
+	var q workqueue.TypedRateLimitingInterface[reconcile.Request]
 	var instance EnqueueRequestForAnnotation[client.Object]
 	var pod *corev1.Pod
 	var podOwner *corev1.Pod
 
 	BeforeEach(func() {
-		q = &controllertest.Queue{Interface: workqueue.New()}
+		q = &controllertest.Queue{TypedInterface: workqueue.NewTyped[reconcile.Request]()}
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "biz",
