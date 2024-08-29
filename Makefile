@@ -28,6 +28,13 @@ vet: ## Run go vet
 tidy: ## Tidy go dependencies
 	@go mod tidy
 
+.PHONY: bingo-upgrade
+bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
+	@for pkg in $$($(BINGO) list | awk '{ print $$1 }' | tail -n +3); do \
+		echo "Upgrading $$pkg to latest..."; \
+		$(BINGO) get "$$pkg@latest"; \
+	done
+
 check-license: $(SOURCES) ## Check license headers
 	@./hack/check-license.sh "$(SOURCES)"
 
