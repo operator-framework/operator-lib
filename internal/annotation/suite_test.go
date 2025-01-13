@@ -34,10 +34,10 @@ func makeCreateEventFor(obj client.Object) event.CreateEvent {
 	return e
 }
 
-func makeUpdateEventFor(old, new client.Object) event.UpdateEvent {
+func makeUpdateEventFor(oldObj, newObj client.Object) event.UpdateEvent {
 	var e event.UpdateEvent
-	e.ObjectOld = old
-	e.ObjectNew = new
+	e.ObjectOld = oldObj
+	e.ObjectNew = newObj
 	return e
 }
 
