@@ -41,7 +41,7 @@ func ExampleNewPause() {
 		os.Exit(1)
 	}
 
-	c, err := controller.NewUnmanaged("pod", mgr, controller.Options{
+	c, err := controller.NewUnmanaged("pod", controller.Options{
 		Reconciler: reconcile.Func(func(context.Context, reconcile.Request) (reconcile.Result, error) {
 			return reconcile.Result{}, nil
 		}),
