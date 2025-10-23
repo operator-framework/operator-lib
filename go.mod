@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/go-logr/logr v1.4.3
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/operator-framework/api v0.34.0
 	github.com/prometheus/client_golang v1.23.2
