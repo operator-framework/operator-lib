@@ -165,7 +165,7 @@ var _ = Describe("Leader election", func() {
 				interceptor.Funcs{
 					// Mock garbage collection of the ConfigMap when the Pod is deleted.
 					Delete: func(ctx context.Context, client crclient.WithWatch, obj crclient.Object, _ ...crclient.DeleteOption) error {
-						if obj.GetObjectKind() != nil && obj.GetObjectKind().GroupVersionKind().Kind == "Pod" && obj.GetName() == "leader-test" {
+						if pod, ok := obj.(*corev1.Pod); ok && pod.GetName() == "leader-test" {
 							cm := &corev1.ConfigMap{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "leader-test",
@@ -260,7 +260,7 @@ var _ = Describe("Leader election", func() {
 				interceptor.Funcs{
 					// Mock garbage collection of the ConfigMap when the Pod is deleted.
 					Delete: func(ctx context.Context, client crclient.WithWatch, obj crclient.Object, _ ...crclient.DeleteOption) error {
-						if obj.GetObjectKind() != nil && obj.GetObjectKind().GroupVersionKind().Kind == "Pod" && obj.GetName() == "leader-test" {
+						if pod, ok := obj.(*corev1.Pod); ok && pod.GetName() == "leader-test" {
 							cm := &corev1.ConfigMap{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "leader-test",
@@ -404,8 +404,7 @@ var _ = Describe("Leader election", func() {
 			pod, err := getPod(context.TODO(), client, "testns")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(pod).ShouldNot(BeNil())
-			Expect(pod.TypeMeta.APIVersion).To(Equal("v1"))
-			Expect(pod.TypeMeta.Kind).To(Equal("Pod"))
+			Expect(pod.Name).To(Equal("mypod"))
 		})
 	})
 
@@ -434,8 +433,7 @@ var _ = Describe("Leader election", func() {
 		It("should return the node with the given name", func() {
 			node := corev1.Node{}
 			Expect(getNode(context.TODO(), client, "mynode", &node)).Should(Succeed())
-			Expect(node.TypeMeta.APIVersion).To(Equal("v1"))
-			Expect(node.TypeMeta.Kind).To(Equal("Node"))
+			Expect(node.Name).To(Equal("mynode"))
 		})
 	})
 
