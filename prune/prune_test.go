@@ -22,15 +22,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
-
-	batchv1 "k8s.io/api/batch/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	crFake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -631,11 +629,17 @@ func createDatedResources() []client.Object {
 // createSchemes is a helper function to set up the schemes needed to run
 // our tests utilizing controller-runtime's fake client
 func createSchemes() (*runtime.Scheme, error) {
-	corev1SchemeBuilder := &scheme.Builder{GroupVersion: corev1.SchemeGroupVersion}
-	corev1SchemeBuilder.Register(&corev1.Pod{}, &corev1.PodList{})
+	corev1SchemeBuilder := runtime.NewSchemeBuilder(func(scheme *runtime.Scheme) error {
+		scheme.AddKnownTypes(corev1.SchemeGroupVersion, &corev1.Pod{}, &corev1.PodList{})
+		metav1.AddToGroupVersion(scheme, corev1.SchemeGroupVersion)
+		return nil
+	})
 
-	batchv1SchemeBuilder := &scheme.Builder{GroupVersion: batchv1.SchemeGroupVersion}
-	batchv1SchemeBuilder.Register(&batchv1.Job{}, &batchv1.JobList{})
+	batchv1SchemeBuilder := runtime.NewSchemeBuilder(func(scheme *runtime.Scheme) error {
+		scheme.AddKnownTypes(batchv1.SchemeGroupVersion, &batchv1.Job{}, &batchv1.JobList{})
+		metav1.AddToGroupVersion(scheme, batchv1.SchemeGroupVersion)
+		return nil
+	})
 
 	outScheme := runtime.NewScheme()
 
